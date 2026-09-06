@@ -92,7 +92,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 <!-- BEGIN GENERATED: do not edit by hand; run scripts/render_evidence_doc.py -->
 
-*Generated 2026-09-06T17:46:53Z from commit `0f8aa43d1a36`.*
+*Generated 2026-09-06T18:03:11Z from commit `ff39652ab0ab`.*
 
 ### Environment
 
@@ -126,7 +126,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 ### Acceptance results
 
-**100 of 100 runs passed** (30.67s).
+**100 of 100 runs passed** (30.59s).
 
 | Scenario | Runs | Passed | Failed | Checks per run | Failed checks |
 |---|---:|---:|---:|---:|---|
@@ -164,8 +164,8 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 | Measurement | p50 | p95 | min | max |
 |---|---:|---:|---:|---:|
-| `correction_apply_ms` | 0.24 | 0.441 | 0.162 | 0.441 | 
-| `correction_to_fence_ms` | 189.667 | 205.909 | 175.158 | 205.909 | 
+| `correction_apply_ms` | 0.214 | 0.459 | 0.157 | 0.459 | 
+| `correction_to_fence_ms` | 188.514 | 202.631 | 172.515 | 202.631 | 
 
 - **`correction_apply_ms`** — Time to extract a correction from the caller's utterance, reject the contradicted hypothesis and increment the state version. Pure in-process CPU work, no I/O. This is the cost of the mechanism itself.
 
