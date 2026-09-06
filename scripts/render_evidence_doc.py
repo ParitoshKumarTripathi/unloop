@@ -37,7 +37,7 @@ def render(results: dict) -> str:
         (
             f"*Generated {results.get('timestamp')} from commit "
             f"`{str(results.get('git_commit'))[:12]}`"
-            + ("  **(working tree was dirty)**" if results.get("git_dirty") else "")
+            + ("  **(source tree was dirty)**" if results.get("source_tree_dirty") else "")
             + ".*"
         ),
         "",

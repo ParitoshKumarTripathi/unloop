@@ -177,7 +177,7 @@ except Exception as exc:
     print("ERROR", exc); raise SystemExit
 head = subprocess.run(["git","rev-parse","HEAD"], capture_output=True, text=True).stdout.strip()
 print("COMMIT_MATCH", "yes" if d.get("git_commit") == head else "no")
-print("DIRTY", d.get("git_dirty"))
+print("DIRTY", d.get("source_tree_dirty"))
 t = d.get("totals", {})
 print("TOTALS", t.get("passes"), "/", t.get("runs"))
 PY
@@ -189,7 +189,7 @@ PY
     warn "results.json was generated from a different commit (regenerate before submitting)"
   fi
   if echo "$EVIDENCE_STATE" | grep -q 'DIRTY True'; then
-    warn "results.json was generated from a dirty working tree"
+    warn "results.json was generated from a dirty SOURCE tree (artifacts/ excluded)"
   fi
 fi
 

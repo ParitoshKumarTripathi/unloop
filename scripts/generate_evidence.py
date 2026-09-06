@@ -60,9 +60,16 @@ def git_commit() -> str:
 
 
 def git_dirty() -> bool:
+    """Was the SOURCE tree dirty when this run started?
+
+    ``artifacts/`` is excluded deliberately. This script rewrites those files as its
+    whole purpose, so including them would report "dirty" on every single run and the
+    flag would carry no information. The question a reader actually needs answered is
+    whether the *code* that produced these numbers was committed.
+    """
     try:
         out = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "--", ".", ":(exclude)artifacts"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -170,7 +177,7 @@ def main() -> int:
 
     document = {
         "git_commit": git_commit(),
-        "git_dirty": git_dirty(),
+        "source_tree_dirty": git_dirty(),
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "duration_s": round(elapsed, 2),
         "environment": {
