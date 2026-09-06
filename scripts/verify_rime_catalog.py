@@ -36,7 +36,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def fetch(url: str, timeout: float = 20.0) -> Any:
     request = urllib.request.Request(url, headers={"User-Agent": "unloop-catalog-check/1.0"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - fixed https URL
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

@@ -118,7 +118,7 @@ async def measure_once(
     started = time.perf_counter()
     first_audio_at: float | None = None
 
-    async with utils.http_context._new_session_ctx():  # noqa: SLF001 - required outside a job
+    async with utils.http_context._new_session_ctx():
         stream = tts.stream()
         stream.push_text(text)
         stream.flush()
@@ -146,7 +146,7 @@ async def measure_once(
         "ttfa_ms": round((first_audio_at - started) * 1000, 2) if first_audio_at else None,
         "total_ms": round((finished - started) * 1000, 2),
         "frames": len(frames),
-        "resolved_endpoint": tts._ws_url(),  # noqa: SLF001 - recorded as evidence
+        "resolved_endpoint": tts._ws_url(),
     }
 
 

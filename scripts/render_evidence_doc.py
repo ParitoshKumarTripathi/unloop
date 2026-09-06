@@ -34,10 +34,12 @@ def render(results: dict) -> str:
     harness = results.get("harness", {})
 
     lines += [
-        f"*Generated {results.get('timestamp')} from commit "
-        f"`{str(results.get('git_commit'))[:12]}`"
-        + ("  **(working tree was dirty)**" if results.get("git_dirty") else "")
-        + ".*",
+        (
+            f"*Generated {results.get('timestamp')} from commit "
+            f"`{str(results.get('git_commit'))[:12]}`"
+            + ("  **(working tree was dirty)**" if results.get("git_dirty") else "")
+            + ".*"
+        ),
         "",
         "### Environment",
         "",
@@ -71,8 +73,10 @@ def render(results: dict) -> str:
         "",
         "### Acceptance results",
         "",
-        f"**{totals.get('passes')} of {totals.get('runs')} runs passed** "
-        f"({results.get('duration_s')}s).",
+        (
+            f"**{totals.get('passes')} of {totals.get('runs')} runs passed** "
+            f"({results.get('duration_s')}s)."
+        ),
         "",
         "| Scenario | Runs | Passed | Failed | Checks per run | Failed checks |",
         "|---|---:|---:|---:|---:|---|",
@@ -127,8 +131,10 @@ def render(results: dict) -> str:
     lines += [
         "### Not yet measured",
         "",
-        "These require credentials or hardware that were not available when this "
-        "artifact was generated. They are recorded as `null`, never estimated.",
+        (
+            "These require credentials or hardware that were not available when this "
+            "artifact was generated. They are recorded as `null`, never estimated."
+        ),
         "",
         "| Measurement | Status | Why |",
         "|---|---|---|",
