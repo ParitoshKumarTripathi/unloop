@@ -1,0 +1,46 @@
+{
+  "$comment": "SYNTHETIC DATA ONLY. No real customer, card, account or phone number appears in this repository. Every identifier here is invented for the demo.",
+  "fixture_id": "otp_slow_tool",
+  "label": "Slow tool plus interruption \u2014 the primary stress case",
+  "description": "get_card_status is delayed 3000 ms so the caller can interrupt while it is in flight. The delayed result returns AFTER the correction that invalidates it, which is the exact condition the stale fence exists for.",
+  "customer": {
+    "customer_id": "demo_customer_001",
+    "card_last4": "4821",
+    "display_name": "demo caller"
+  },
+  "backend_state": {
+    "card_status": "ACTIVE",
+    "online_transactions": "ENABLED",
+    "registered_mobile_status": "VERIFIED",
+    "otp_generation_status": "SUCCESS",
+    "otp_delivery_status": "FAILED",
+    "otp_delivery_failure_reason": "SMS_PROVIDER_FAILURE",
+    "last_successful_card_use_hours_ago": 2,
+    "service_incidents": {
+      "sms_provider": {
+        "status": "DEGRADED",
+        "incident_id": "INC-SMS-4471",
+        "summary": "Elevated delivery failures at the downstream SMS aggregator",
+        "started_minutes_ago": 95
+      },
+      "card_network": {
+        "status": "OPERATIONAL",
+        "incident_id": null,
+        "summary": "No known issues"
+      }
+    }
+  },
+  "tool_delays_ms": {
+    "get_card_status": 3000
+  },
+  "tool_failures": {},
+  "expected_resolution": {
+    "supported_hypothesis": "OTP_DELIVERY_FAILED",
+    "rejected_hypotheses": [
+      "CARD_BLOCKED"
+    ],
+    "escalation_expected": true,
+    "escalation_destination": "OTP/SMS delivery support",
+    "stale_tool_expected": "get_card_status"
+  }
+}

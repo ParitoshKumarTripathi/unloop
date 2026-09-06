@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unloop-agent"
+version = "0.1.0"
+description = "UNLOOP — a realtime voice support agent that detects its own wrong diagnoses"
+requires-python = ">=3.10, <3.15"
+
+dependencies = [
+    # Pinned below the next major: 1.8.0 deprecates the flat turn kwargs with
+    # target_version="v2.0", so v2 is a known breaking boundary.
+    "livekit-agents[codecs]>=1.8.0,<2",
+    # The judged speech path. Direct plugin, our own RIME_API_KEY (see ADR-001).
+    "livekit-plugins-rime>=1.8.0,<2",
+    "livekit-plugins-silero>=1.8.0,<2",
+    "livekit-plugins-turn-detector>=1.8.0,<2",
+    "pydantic>=2",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[tool.uv]
+# Carried over from livekit-examples/agent-starter-python: yarl 1.24.1 was published
+# with only a cp310 wheel and no sdist, so it cannot install on Python 3.11+.
+constraint-dependencies = ["yarl<1.24"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
