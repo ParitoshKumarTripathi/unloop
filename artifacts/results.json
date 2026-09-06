@@ -1,8 +1,8 @@
 {
-  "git_commit": "4e42ffb29d3b56a83059463cdf80a2b5016828b0",
+  "git_commit": "e9c8d674e31a6cc18ed932b39c68dfc44b6c73a7",
   "source_tree_dirty": false,
-  "timestamp": "2026-09-06T17:27:15Z",
-  "duration_s": 30.97,
+  "timestamp": "2026-09-06T17:44:45Z",
+  "duration_s": 30.61,
   "environment": {
     "python": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -51,8 +51,8 @@
     "api_key_present": false,
     "verified_against_live_catalog": null,
     "config_problems": [],
-    "git_commit": "4e42ffb29d3b56a83059463cdf80a2b5016828b0",
-    "timestamp": "2026-09-06T17:26:44Z"
+    "git_commit": "e9c8d674e31a6cc18ed932b39c68dfc44b6c73a7",
+    "timestamp": "2026-09-06T17:44:15Z"
   },
   "totals": {
     "runs": 100,
@@ -87,16 +87,16 @@
       "failed_checks": [],
       "in_process_timings_ms": {
         "correction_apply_ms": {
-          "p50": 0.541,
-          "p95": 1.24,
-          "max": 1.24,
-          "min": 0.287
+          "p50": 0.221,
+          "p95": 0.59,
+          "max": 0.59,
+          "min": 0.151
         },
         "correction_to_fence_ms": {
-          "p50": 183.404,
-          "p95": 199.118,
-          "max": 199.118,
-          "min": 164.338
+          "p50": 189.449,
+          "p95": 190.646,
+          "max": 190.646,
+          "min": 165.942
         }
       }
     },
