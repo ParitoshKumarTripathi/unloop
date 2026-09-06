@@ -151,15 +151,38 @@ Verify the configured voice exists in Rime's live catalog:
 python scripts/verify_rime_catalog.py --list-support-voices
 ```
 
-### Run it
+### Run the full demo
+
+Two processes. The worker must be running before you start a call, or nothing will
+join the room.
+
+**Terminal 1 — the agent worker:**
 
 ```bash
-cd agent && .venv/Scripts/python.exe -m unloop.agent console   # terminal voice loop
-cd agent && .venv/Scripts/python.exe -m unloop.agent dev       # worker against LiveKit Cloud
+cd agent && .venv/Scripts/python.exe -m unloop.agent dev
 ```
 
-On macOS or Linux use `agent/.venv/bin/python`. With
-[Task](https://taskfile.dev): `task dev` / `task dev-room` / `task test`.
+Wait for `registered worker {"agent_name": "unloop", ...}`.
+
+**Terminal 2 — the frontend:**
+
+```bash
+cd apps/web && cp .env.example .env.local   # fill in LiveKit creds, keep AGENT_NAME=unloop
+pnpm install && pnpm dev
+```
+
+Open http://localhost:3000 and click **Start call**. The resolution panel appears on
+the right at viewport widths of 1024px and up.
+
+On macOS or Linux use `agent/.venv/bin/python`. With [Task](https://taskfile.dev):
+`task dev-room` and `task web`.
+
+Two things worth knowing:
+
+- `AGENT_NAME=unloop` is **required**. The worker registers with an explicit agent
+  name, so blank means automatic dispatch and no agent ever joins.
+- `-m unloop.agent`, not `src/unloop/agent.py`. It is a package, and running the file
+  directly breaks its relative imports.
 
 ---
 

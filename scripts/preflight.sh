@@ -70,13 +70,20 @@ else
 fi
 
 # The Rime key must never be reachable from the browser bundle.
+#
+# Looks for real USES, not mentions: a process.env read, a NEXT_PUBLIC_ variant
+# (which webpack would inline into client JS), or an actual assignment with a value.
+# Comments explaining that the key is deliberately absent are fine — arguably
+# desirable — and must not fail the build.
 if [ -d apps/web ]; then
-  CLIENT_LEAK="$(git grep -nI 'RIME_API_KEY' -- apps/web 2>/dev/null | grep -v 'NEXT_PUBLIC.*#' || true)"
+  CLIENT_LEAK="$(git grep -nIE \
+      'process\.env\.[A-Z_]*RIME_API_KEY|NEXT_PUBLIC_[A-Z_]*RIME|^[^#/]*RIME_API_KEY=[^[:space:]]' \
+      -- apps/web 2>/dev/null || true)"
   if [ -n "$CLIENT_LEAK" ]; then
-    bad "RIME_API_KEY is referenced in the web app; it must stay server-side:"
+    bad "RIME_API_KEY is used in the web app; it must stay server-side:"
     echo "$CLIENT_LEAK" | sed 's/^/          /'
   else
-    ok "RIME_API_KEY is not referenced in the web app"
+    ok "RIME_API_KEY is not used in the web app (server-side only)"
   fi
 fi
 
