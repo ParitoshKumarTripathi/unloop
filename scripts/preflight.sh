@@ -206,10 +206,26 @@ print("TOTALS", t.get("passes"), "/", t.get("runs"))
 PY
 )"
   echo "$EVIDENCE_STATE" | grep -E '^TOTALS' | sed 's/^/          /'
+
+  # Whether results.json is current is NOT a question about commit hashes. Committing
+  # results.json necessarily changes HEAD, so an exact-hash check can never pass
+  # without a second empty commit. What actually matters is whether the SOURCE has
+  # changed since the numbers were produced — artifacts and the generated section of
+  # RIME_EVIDENCE.md are outputs of that run, not inputs to it.
+  EVIDENCE_COMMIT="$("$PY" -c "import json;print(json.load(open('artifacts/results.json')).get('git_commit',''))" 2>/dev/null)"
   if echo "$EVIDENCE_STATE" | grep -q 'COMMIT_MATCH yes'; then
     ok "results.json was generated from the current commit"
+  elif [ -n "$EVIDENCE_COMMIT" ] && git cat-file -e "${EVIDENCE_COMMIT}^{commit}" 2>/dev/null; then
+    SOURCE_DRIFT="$(git diff --name-only "$EVIDENCE_COMMIT" HEAD -- . \
+        ':(exclude)artifacts' ':(exclude)RIME_EVIDENCE.md' 2>/dev/null || true)"
+    if [ -z "$SOURCE_DRIFT" ]; then
+      ok "results.json predates HEAD, but no source changed since (evidence still valid)"
+    else
+      warn "source changed since results.json was generated — regenerate before submitting:"
+      echo "$SOURCE_DRIFT" | head -5 | sed 's/^/          /'
+    fi
   else
-    warn "results.json was generated from a different commit (regenerate before submitting)"
+    warn "results.json references an unknown commit (regenerate before submitting)"
   fi
   if echo "$EVIDENCE_STATE" | grep -q 'DIRTY True'; then
     warn "results.json was generated from a dirty SOURCE tree (artifacts/ excluded)"
