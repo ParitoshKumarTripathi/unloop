@@ -1,0 +1,102 @@
+# UNLOOP task runner (https://taskfile.dev).
+#
+# Every task here is a thin wrapper around a script in scripts/, so nothing is only
+# runnable through Task. If you do not have Task installed, run the underlying
+# command shown in each task's `cmds` directly — they work under bash, including
+# Git Bash on Windows.
+version: "3"
+
+vars:
+  PY:
+    sh: 'if [ -x agent/.venv/Scripts/python.exe ]; then echo agent/.venv/Scripts/python.exe; elif [ -x agent/.venv/bin/python ]; then echo agent/.venv/bin/python; else echo python; fi'
+  RUNS: '{{.RUNS | default "20"}}'
+  DELAY_MS: '{{.DELAY_MS | default "300"}}'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  setup:
+    desc: Create the agent virtualenv and install dependencies
+    cmds:
+      - cd agent && uv venv --python 3.12
+      - cd agent && uv sync
+
+  test:
+    desc: Run the deterministic test suite
+    cmds:
+      - cd agent && {{.PY}} -m pytest tests/ -q
+    dir: .
+
+  test-verbose:
+    desc: Run the test suite with per-test names
+    cmds:
+      - cd agent && ../{{.PY}} -m pytest tests/ -v
+
+  lint:
+    desc: Lint and format-check the agent
+    cmds:
+      - cd agent && ../{{.PY}} -m ruff check src/ tests/
+      - cd agent && ../{{.PY}} -m ruff format --check src/ tests/
+
+  fmt:
+    desc: Format the agent source
+    cmds:
+      - cd agent && ../{{.PY}} -m ruff format src/ tests/
+      - cd agent && ../{{.PY}} -m ruff check --fix src/ tests/
+
+  evidence:
+    desc: Run the acceptance scenarios and regenerate artifacts/
+    cmds:
+      - '{{.PY}} scripts/generate_evidence.py --runs {{.RUNS}} --delay-ms {{.DELAY_MS}}'
+
+  acceptance:
+    desc: Full acceptance suite - tests, evidence, catalog verification
+    cmds:
+      - RUNS={{.RUNS}} DELAY_MS={{.DELAY_MS}} bash scripts/run_acceptance_tests.sh
+
+  catalog:
+    desc: Verify the configured Rime model/voice against the LIVE catalog
+    cmds:
+      - '{{.PY}} scripts/verify_rime_catalog.py --list-support-voices --write-artifact'
+
+  benchmark:
+    desc: Benchmark the real Rime path (needs RIME_API_KEY)
+    cmds:
+      - '{{.PY}} scripts/run_voice_benchmark.py --all'
+
+  preflight:
+    desc: Pre-submission checks - secrets, config, catalog, tests, artifacts
+    cmds:
+      - bash scripts/preflight.sh
+
+  dev:
+    desc: Run the agent locally in console mode (needs LiveKit + Rime credentials)
+    dir: agent
+    cmds:
+      - ../{{.PY}} src/unloop/agent.py console
+
+  dev-room:
+    desc: Run the agent as a worker connected to LiveKit Cloud
+    dir: agent
+    cmds:
+      - ../{{.PY}} src/unloop/agent.py dev
+
+  docker-build:
+    desc: Build the agent image (must run from the repo root - it needs fixtures/)
+    cmds:
+      - docker build -f agent/Dockerfile -t unloop-agent .
+
+  web:
+    desc: Run the Next.js frontend
+    dir: apps/web
+    cmds:
+      - pnpm dev
+
+  web-build:
+    desc: Production build of the frontend
+    dir: apps/web
+    cmds:
+      - pnpm build

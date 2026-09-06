@@ -1,0 +1,188 @@
+{
+  "git_commit": "7972d3a7f1c8175b15c4d37095c6484de6b03ed9",
+  "git_dirty": true,
+  "timestamp": "2026-09-06T16:40:18Z",
+  "duration_s": 31.31,
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "livekit_agents": "1.8.0",
+    "livekit_plugins_rime": "1.8.0"
+  },
+  "harness": {
+    "kind": "in-process deterministic",
+    "covers": [
+      "tool dispatch with injected latency",
+      "correction extraction and reconciliation",
+      "hypothesis rejection and re-activation rules",
+      "stale-result fence",
+      "output guard",
+      "loop detection",
+      "handoff packet construction"
+    ],
+    "does_not_cover": [
+      "audio capture or playback",
+      "LiveKit realtime session behaviour",
+      "Rime synthesis over the network",
+      "SIP telephony"
+    ],
+    "injected_card_status_delay_ms": 300
+  },
+  "timing_notes": {
+    "correction_apply_ms": "Time to extract a correction from the caller's utterance, reject the contradicted hypothesis and increment the state version. Pure in-process CPU work, no I/O. This is the cost of the mechanism itself.",
+    "correction_to_fence_ms": "Wall-clock time from the correction being applied to the in-flight tool result being classified by the fence. NOT a measure of fence speed: it is dominated by the remainder of the injected 300 ms tool delay, because the fence cannot classify a result that has not arrived yet. Reported because it shows the correction genuinely lands while the tool is still in flight, which is the precondition the stress case depends on.",
+    "caveat": "All timings here are in-process. None of them include audio capture, network, synthesis or playback. Do not read them as end-to-end voice latencies - those are listed under not_yet_measured."
+  },
+  "rime_config": {
+    "provider": "Rime",
+    "integration": "livekit-plugins-rime (direct plugin, own RIME_API_KEY)",
+    "model": "coda",
+    "speaker": "eyre",
+    "language": "eng",
+    "base_url": "wss://users-ws.rime.ai",
+    "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng",
+    "region": "us-west",
+    "audio_format": "pcm_s16le",
+    "sample_rate": 24000,
+    "transport": "websocket",
+    "segment": "bySentence",
+    "livekit_plugin_version": "1.8.0",
+    "livekit_agents_version": "1.8.0",
+    "api_key_present": false,
+    "verified_against_live_catalog": null,
+    "config_problems": [],
+    "git_commit": "7972d3a7f1c8175b15c4d37095c6484de6b03ed9",
+    "timestamp": "2026-09-06T16:39:46Z"
+  },
+  "totals": {
+    "runs": 100,
+    "passes": 100,
+    "failures": 0
+  },
+  "tests": {
+    "primary_stale_fence": {
+      "runs": 20,
+      "passes": 20,
+      "failures": 0,
+      "checks_per_run": 17,
+      "per_check_passes": {
+        "card_blocked_rejected": 20,
+        "corrected_response_was_spoken": 20,
+        "final_response_mentions_delivery": 20,
+        "handoff_has_confirmed_rejected_and_attempted": 20,
+        "handoff_routes_to_delivery_team": 20,
+        "late_result_cannot_speak": 20,
+        "late_result_did_not_speak": 20,
+        "late_result_is_stale": 20,
+        "late_result_kept_as_evidence": 20,
+        "naive_diagnosis_was_spoken_first": 20,
+        "no_rejected_assertion_after_rejection": 20,
+        "rejection_cites_user_evidence": 20,
+        "repeat_of_rejected_diagnosis_blocked": 20,
+        "stale_event_emitted": 20,
+        "state_version_incremented_once": 20,
+        "tool_was_still_in_flight_at_correction": 20,
+        "unrelated_check_still_usable": 20
+      },
+      "failed_checks": [],
+      "in_process_timings_ms": {
+        "correction_apply_ms": {
+          "p50": 0.583,
+          "p95": 1.111,
+          "max": 1.111,
+          "min": 0.41
+        },
+        "correction_to_fence_ms": {
+          "p50": 176.63,
+          "p95": 206.17,
+          "max": 206.17,
+          "min": 159.955
+        }
+      }
+    },
+    "normal_flow": {
+      "runs": 20,
+      "passes": 20,
+      "failures": 0,
+      "checks_per_run": 5,
+      "per_check_passes": {
+        "diagnosis_spoken": 20,
+        "no_loop_detected": 20,
+        "no_stale_results": 20,
+        "no_unearned_resolution_check": 20,
+        "reached_delivery_diagnosis": 20
+      },
+      "failed_checks": [],
+      "in_process_timings_ms": {}
+    },
+    "loop_detection": {
+      "runs": 20,
+      "passes": 20,
+      "failures": 0,
+      "checks_per_run": 3,
+      "per_check_passes": {
+        "loop_detected": 20,
+        "loop_event_emitted": 20,
+        "strategy_change_or_escalation_available": 20
+      },
+      "failed_checks": [],
+      "in_process_timings_ms": {}
+    },
+    "tool_failure": {
+      "runs": 20,
+      "passes": 20,
+      "failures": 0,
+      "checks_per_run": 4,
+      "per_check_passes": {
+        "delivery_hypothesis_not_promoted": 20,
+        "failure_surfaced_as_open_question": 20,
+        "no_payload_invented": 20,
+        "tool_failed_as_configured": 20
+      },
+      "failed_checks": [],
+      "in_process_timings_ms": {}
+    },
+    "escalation": {
+      "runs": 20,
+      "passes": 20,
+      "failures": 0,
+      "checks_per_run": 7,
+      "per_check_passes": {
+        "has_attempted_actions": 20,
+        "has_confirmed_facts": 20,
+        "has_recommended_destination": 20,
+        "has_rejected_hypotheses": 20,
+        "has_user_corrections": 20,
+        "records_why_each_was_rejected": 20,
+        "spoken_summary_is_short": 20
+      },
+      "failed_checks": [],
+      "in_process_timings_ms": {}
+    }
+  },
+  "not_yet_measured": {
+    "interruption_to_obsolete_audio_stop_ms": {
+      "runs": 0,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "measured": false,
+      "reason": "Requires a live LiveKit session with real audio. No credentials were configured when this run was generated. No target is claimed until a baseline is measured."
+    },
+    "rime_time_to_first_audio_ms": {
+      "runs": 0,
+      "p50": null,
+      "p95": null,
+      "measured": false,
+      "reason": "Requires RIME_API_KEY. Run scripts/run_voice_benchmark.py."
+    },
+    "rime_region_comparison": {
+      "measured": false,
+      "reason": "us-west and us-east must be compared from the deployed worker's region, not from a developer laptop. Run after deployment."
+    },
+    "telephony_sip_path": {
+      "measured": false,
+      "reason": "No SIP trunk configured yet (Phase 9)."
+    }
+  }
+}

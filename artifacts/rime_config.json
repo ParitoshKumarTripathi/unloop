@@ -1,0 +1,21 @@
+{
+  "provider": "Rime",
+  "integration": "livekit-plugins-rime (direct plugin, own RIME_API_KEY)",
+  "model": "coda",
+  "speaker": "eyre",
+  "language": "eng",
+  "base_url": "wss://users-ws.rime.ai",
+  "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng",
+  "region": "us-west",
+  "audio_format": "pcm_s16le",
+  "sample_rate": 24000,
+  "transport": "websocket",
+  "segment": "bySentence",
+  "livekit_plugin_version": "1.8.0",
+  "livekit_agents_version": "1.8.0",
+  "api_key_present": false,
+  "verified_against_live_catalog": null,
+  "config_problems": [],
+  "git_commit": "7972d3a7f1c8175b15c4d37095c6484de6b03ed9",
+  "timestamp": "2026-09-06T16:39:46Z"
+}
