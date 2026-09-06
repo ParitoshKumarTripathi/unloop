@@ -52,8 +52,11 @@ UNLOOP fixes all three deterministically, in Python, outside the model.
 Evidence, method and limitations: **[RIME_EVIDENCE.md](RIME_EVIDENCE.md)**.
 
 **Current status:** 100/100 acceptance runs pass, machine-generated into
-`artifacts/results.json`. All measurements to date are in-process. Live-audio
-measurements are pending credentials and are recorded as `null`, never estimated.
+`artifacts/results.json`. The Rime speech path is live and measured — model, voice,
+region, segmentation and sample rate all benchmarked against the real API
+(`artifacts/voice_benchmark.json`). The resolution invariants are proven in-process;
+interruption-to-audio-stop and the SIP path are **not yet measured** and are recorded
+as `null` with a reason, never estimated.
 
 ---
 
@@ -228,19 +231,24 @@ Rime failure surfaces as an error, in the logs and on the badge.
 The full list, with reasoning, is in
 [RIME_EVIDENCE.md § Limitations](RIME_EVIDENCE.md#limitations). The short version:
 
-1. Measured results are **in-process** — real engine, real fixtures, real injected
-   latency, but no audio. They prove the fence logic, not end-to-end audio timing.
+1. The **resolution** results are in-process — real engine, real fixtures, real
+   injected latency, but no audio in the loop. They prove the fence logic, not
+   end-to-end audio timing. (The **Rime** measurements are live and separate.)
 2. **Interruption-to-audio-stop is unmeasured.** No target is claimed until a baseline
    exists.
 3. "What the caller heard" is derived from LiveKit's synchronised transcript backed by
    Rime word timestamps — close to exact, not exact.
 4. Correction extraction is pattern-based: it never invents a correction, but it will
    miss paraphrases outside its patterns.
-5. The voice (`eyre`) is a reasoned shortlist pick, **not yet confirmed by a listening
-   test**.
-6. The Rime region is the plugin default (us-west), **not yet benchmarked** from the
-   deployment region.
-7. Telephony (SIP) is not yet wired.
+5. The voice (`eyre`) is rendered and rate-measured but **not yet confirmed by
+   listening**. At 113 wpm it is 25% slower than conversational English, so it may
+   read as ponderous rather than calm.
+6. **~380 ms time-to-first-audio is a geographic floor, not a tuning problem.** This
+   LiveKit project is in India South; Rime serves US regions only. Both Rime regions
+   measured identically from here (383 vs 381 ms p50, n=15) because the round-trip
+   dominates. Region, segmentation and sample rate are all rounding errors against it.
+7. Rime numbers were taken from a development machine, not the deployed worker.
+8. Telephony (SIP) is not yet wired.
 
 ## Repository layout
 

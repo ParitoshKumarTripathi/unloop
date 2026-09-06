@@ -92,7 +92,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 <!-- BEGIN GENERATED: do not edit by hand; run scripts/render_evidence_doc.py -->
 
-*Generated 2026-09-06T17:17:26Z from commit `595ff25101c0`  **(source tree was dirty)**.*
+*Generated 2026-09-06T17:27:15Z from commit `4e42ffb29d3b`.*
 
 ### Environment
 
@@ -126,7 +126,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 ### Acceptance results
 
-**100 of 100 runs passed** (31.11s).
+**100 of 100 runs passed** (30.97s).
 
 | Scenario | Runs | Passed | Failed | Checks per run | Failed checks |
 |---|---:|---:|---:|---:|---|
@@ -164,8 +164,8 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 | Measurement | p50 | p95 | min | max |
 |---|---:|---:|---:|---:|
-| `correction_apply_ms` | 0.469 | 1.166 | 0.315 | 1.166 | 
-| `correction_to_fence_ms` | 175.071 | 194.168 | 166.116 | 194.168 | 
+| `correction_apply_ms` | 0.541 | 1.24 | 0.287 | 1.24 | 
+| `correction_to_fence_ms` | 183.404 | 199.118 | 164.338 | 199.118 | 
 
 - **`correction_apply_ms`** — Time to extract a correction from the caller's utterance, reject the contradicted hypothesis and increment the state version. Pure in-process CPU work, no I/O. This is the cost of the mechanism itself.
 
@@ -176,7 +176,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 ### Live Rime measurements
 
-*Measured 2026-09-06T17:14:07Z from `Windows-11-10.0.26200-SP0`.*
+*Measured 2026-09-06T17:18:23Z from `Windows-11-10.0.26200-SP0`.*
 
 > Rime serves us-east-1 and us-west-2 only. A measurement taken far from both says more about geography than about Rime. Re-run from the deployed worker for the number that describes production.
 
@@ -186,30 +186,30 @@ Time to first audio, client-side, through the same WebSocket path the agent uses
 
 | Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
 |---|---:|---:|---:|---:|---:|---:|
-| `us-west` | 1560.65 | 382.93 | 3867.53 | 378.03 | 3867.53 | 6 |
-| `us-east` | 3448.09 | 370.99 | 422.81 | 368.9 | 422.81 | 6 |
+| `us-west` | 4747.32 | 382.66 | 476.55 | 364.2 | 476.55 | 15 |
+| `us-east` | 1502.36 | 381.15 | 449.25 | 352.0 | 449.25 | 15 |
 
 **segments**
 
 | Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
 |---|---:|---:|---:|---:|---:|---:|
-| `bySentence` | 1772.35 | 372.28 | 426.73 | 369.35 | 426.73 | 6 |
-| `immediate` | 1315.63 | 382.27 | 421.06 | 375.38 | 421.06 | 6 |
+| `bySentence` | 1431.18 | 358.41 | 458.33 | 334.95 | 458.33 | 15 |
+| `immediate` | 1270.75 | 370.11 | 448.59 | 345.37 | 448.59 | 15 |
 
 **models**
 
 | Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
 |---|---:|---:|---:|---:|---:|---:|
-| `coda/eyre` | 1340.09 | 388.33 | 438.39 | 376.01 | 438.39 | 6 |
-| `mistv3/cove` | 1503.86 | 348.12 | 451.36 | 332.79 | 451.36 | 6 |
+| `coda/eyre` | 1502.58 | 381.0 | 413.07 | 375.12 | 413.07 | 15 |
+| `mistv3/cove` | 1228.27 | 326.36 | 349.97 | 323.85 | 349.97 | 15 |
 
 **sample rates**
 
 | Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
 |---|---:|---:|---:|---:|---:|---:|
-| `8000Hz` | 1684.65 | 357.51 | 2176.73 | 336.45 | 2176.73 | 6 |
-| `16000Hz` | 1302.52 | 381.0 | 393.58 | 351.03 | 393.58 | 6 |
-| `24000Hz` | 1286.64 | 379.87 | 414.58 | 361.21 | 414.58 | 6 |
+| `8000Hz` | 1328.28 | 378.6 | 2113.01 | 376.14 | 2113.01 | 15 |
+| `16000Hz` | 1422.01 | 378.65 | 710.72 | 373.99 | 710.72 | 15 |
+| `24000Hz` | 1311.9 | 360.37 | 445.79 | 338.38 | 445.79 | 15 |
 
 **voices** — identical pronunciation probe, so duration is directly comparable. Speaking rate is not in Rime's catalog and is the one objective thing separating these candidates.
 

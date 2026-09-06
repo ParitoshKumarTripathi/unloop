@@ -1,8 +1,8 @@
 {
-  "git_commit": "595ff25101c065e35042eb2c7b2b323b4c581ffd",
-  "source_tree_dirty": true,
-  "timestamp": "2026-09-06T17:17:26Z",
-  "duration_s": 31.11,
+  "git_commit": "4e42ffb29d3b56a83059463cdf80a2b5016828b0",
+  "source_tree_dirty": false,
+  "timestamp": "2026-09-06T17:27:15Z",
+  "duration_s": 30.97,
   "environment": {
     "python": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -51,8 +51,8 @@
     "api_key_present": false,
     "verified_against_live_catalog": null,
     "config_problems": [],
-    "git_commit": "595ff25101c065e35042eb2c7b2b323b4c581ffd",
-    "timestamp": "2026-09-06T17:16:54Z"
+    "git_commit": "4e42ffb29d3b56a83059463cdf80a2b5016828b0",
+    "timestamp": "2026-09-06T17:26:44Z"
   },
   "totals": {
     "runs": 100,
@@ -87,16 +87,16 @@
       "failed_checks": [],
       "in_process_timings_ms": {
         "correction_apply_ms": {
-          "p50": 0.469,
-          "p95": 1.166,
-          "max": 1.166,
-          "min": 0.315
+          "p50": 0.541,
+          "p95": 1.24,
+          "max": 1.24,
+          "min": 0.287
         },
         "correction_to_fence_ms": {
-          "p50": 175.071,
-          "p95": 194.168,
-          "max": 194.168,
-          "min": 166.116
+          "p50": 183.404,
+          "p95": 199.118,
+          "max": 199.118,
+          "min": 164.338
         }
       }
     },
@@ -163,7 +163,7 @@
   "live_rime_measurements": {
     "measured": true,
     "source": "artifacts/voice_benchmark.json",
-    "measured_at": "2026-09-06T17:14:07Z",
+    "measured_at": "2026-09-06T17:18:23Z",
     "measured_from": {
       "platform": "Windows-11-10.0.26200-SP0",
       "caveat": "Rime serves us-east-1 and us-west-2 only. A measurement taken far from both says more about geography than about Rime. Re-run from the deployed worker for the number that describes production."
@@ -178,15 +178,15 @@
           "segment": "bySentence",
           "sample_rate": 24000
         },
-        "cold_ttfa_ms": 1560.65,
+        "cold_ttfa_ms": 4747.32,
         "warm_ttfa_ms": {
-          "p50": 382.93,
-          "p95": 3867.53,
-          "min": 378.03,
-          "max": 3867.53,
-          "n": 6
+          "p50": 382.66,
+          "p95": 476.55,
+          "min": 364.2,
+          "max": 476.55,
+          "n": 15
         },
-        "audio_ms": 8720.0,
+        "audio_ms": 8880.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
       },
       "us-east": {
@@ -197,15 +197,15 @@
           "segment": "bySentence",
           "sample_rate": 24000
         },
-        "cold_ttfa_ms": 3448.09,
+        "cold_ttfa_ms": 1502.36,
         "warm_ttfa_ms": {
-          "p50": 370.99,
-          "p95": 422.81,
-          "min": 368.9,
-          "max": 422.81,
-          "n": 6
+          "p50": 381.15,
+          "p95": 449.25,
+          "min": 352.0,
+          "max": 449.25,
+          "n": 15
         },
-        "audio_ms": 8480.0,
+        "audio_ms": 8240.0,
         "resolved_endpoint": "wss://users-east-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
       }
     },
@@ -218,15 +218,15 @@
           "segment": "bySentence",
           "sample_rate": 24000
         },
-        "cold_ttfa_ms": 1772.35,
+        "cold_ttfa_ms": 1431.18,
         "warm_ttfa_ms": {
-          "p50": 372.28,
-          "p95": 426.73,
-          "min": 369.35,
-          "max": 426.73,
-          "n": 6
+          "p50": 358.41,
+          "p95": 458.33,
+          "min": 334.95,
+          "max": 458.33,
+          "n": 15
         },
-        "audio_ms": 8640.0,
+        "audio_ms": 8720.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
       },
       "immediate": {
@@ -237,15 +237,15 @@
           "segment": "immediate",
           "sample_rate": 24000
         },
-        "cold_ttfa_ms": 1315.63,
+        "cold_ttfa_ms": 1270.75,
         "warm_ttfa_ms": {
-          "p50": 382.27,
-          "p95": 421.06,
-          "min": 375.38,
-          "max": 421.06,
-          "n": 6
+          "p50": 370.11,
+          "p95": 448.59,
+          "min": 345.37,
+          "max": 448.59,
+          "n": 15
         },
-        "audio_ms": 9440.0,
+        "audio_ms": 8720.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=immediate&lang=eng"
       }
     },
@@ -258,13 +258,13 @@
           "segment": "bySentence",
           "sample_rate": 24000
         },
-        "cold_ttfa_ms": 1340.09,
+        "cold_ttfa_ms": 1502.58,
         "warm_ttfa_ms": {
-          "p50": 388.33,
-          "p95": 438.39,
-          "min": 376.01,
-          "max": 438.39,
-          "n": 6
+          "p50": 381.0,
+          "p95": 413.07,
+          "min": 375.12,
+          "max": 413.07,
+          "n": 15
         },
         "audio_ms": 9440.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
@@ -277,15 +277,15 @@
           "segment": "bySentence",
           "sample_rate": 22050
         },
-        "cold_ttfa_ms": 1503.86,
+        "cold_ttfa_ms": 1228.27,
         "warm_ttfa_ms": {
-          "p50": 348.12,
-          "p95": 451.36,
-          "min": 332.79,
-          "max": 451.36,
-          "n": 6
+          "p50": 326.36,
+          "p95": 349.97,
+          "min": 323.85,
+          "max": 349.97,
+          "n": 15
         },
-        "audio_ms": 7840.0,
+        "audio_ms": 7780.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=cove&modelId=mistv3&audioFormat=pcm&samplingRate=22050&segment=bySentence&lang=eng"
       }
     },
@@ -298,15 +298,15 @@
           "segment": "bySentence",
           "sample_rate": 8000
         },
-        "cold_ttfa_ms": 1684.65,
+        "cold_ttfa_ms": 1328.28,
         "warm_ttfa_ms": {
-          "p50": 357.51,
-          "p95": 2176.73,
-          "min": 336.45,
-          "max": 2176.73,
-          "n": 6
+          "p50": 378.6,
+          "p95": 2113.01,
+          "min": 376.14,
+          "max": 2113.01,
+          "n": 15
         },
-        "audio_ms": 10100.0,
+        "audio_ms": 9460.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=8000&segment=bySentence&lang=eng"
       },
       "16000Hz": {
@@ -317,15 +317,15 @@
           "segment": "bySentence",
           "sample_rate": 16000
         },
-        "cold_ttfa_ms": 1302.52,
+        "cold_ttfa_ms": 1422.01,
         "warm_ttfa_ms": {
-          "p50": 381.0,
-          "p95": 393.58,
-          "min": 351.03,
-          "max": 393.58,
-          "n": 6
+          "p50": 378.65,
+          "p95": 710.72,
+          "min": 373.99,
+          "max": 710.72,
+          "n": 15
         },
-        "audio_ms": 9140.0,
+        "audio_ms": 8500.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=16000&segment=bySentence&lang=eng"
       },
       "24000Hz": {
@@ -336,15 +336,15 @@
           "segment": "bySentence",
           "sample_rate": 24000
         },
-        "cold_ttfa_ms": 1286.64,
+        "cold_ttfa_ms": 1311.9,
         "warm_ttfa_ms": {
-          "p50": 379.87,
-          "p95": 414.58,
-          "min": 361.21,
-          "max": 414.58,
-          "n": 6
+          "p50": 360.37,
+          "p95": 445.79,
+          "min": 338.38,
+          "max": 445.79,
+          "n": 15
         },
-        "audio_ms": 9200.0,
+        "audio_ms": 8960.0,
         "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
       }
     },
