@@ -151,8 +151,8 @@ python scripts/verify_rime_catalog.py --list-support-voices
 ### Run it
 
 ```bash
-cd agent && ../agent/.venv/Scripts/python.exe src/unloop/agent.py console   # terminal voice loop
-cd agent && ../agent/.venv/Scripts/python.exe src/unloop/agent.py dev       # worker against LiveKit Cloud
+cd agent && .venv/Scripts/python.exe -m unloop.agent console   # terminal voice loop
+cd agent && .venv/Scripts/python.exe -m unloop.agent dev       # worker against LiveKit Cloud
 ```
 
 On macOS or Linux use `agent/.venv/bin/python`. With

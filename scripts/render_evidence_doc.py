@@ -127,6 +127,66 @@ def render(results: dict) -> str:
     if notes.get("caveat"):
         lines += [f"> {notes['caveat']}", ""]
 
+    # Live Rime measurements, if a benchmark has been run.
+    live = results.get("live_rime_measurements") or {}
+    lines += ["", "### Live Rime measurements", ""]
+    if not live.get("measured"):
+        lines += [f"Not run. {live.get('reason', '')}", ""]
+    else:
+        lines += [
+            f"*Measured {live.get('measured_at')} from "
+            f"`{(live.get('measured_from') or {}).get('platform', 'unknown')}`.*",
+            "",
+            f"> {(live.get('measured_from') or {}).get('caveat', '')}",
+            "",
+            "Time to first audio, client-side, through the same WebSocket path the "
+            "agent uses. **Cold** = new connection (TCP + TLS + WebSocket handshake). "
+            "**Warm** = pooled connection, which is what a running agent sees between "
+            "turns. They measure different things and are not averaged together.",
+            "",
+        ]
+        for dimension in ("regions", "segments", "models", "sample_rates"):
+            block = live.get(dimension)
+            if not block:
+                continue
+            lines += [
+                f"**{dimension.replace('_', ' ')}**",
+                "",
+                "| Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |",
+                "|---|---:|---:|---:|---:|---:|---:|",
+            ]
+            for name, data in block.items():
+                if "error" in data:
+                    lines.append(f"| `{name}` | error: {data['error']} | | | | | |")
+                    continue
+                warm = data.get("warm_ttfa_ms", {})
+                lines.append(
+                    f"| `{name}` | {data.get('cold_ttfa_ms')} | {warm.get('p50')} | "
+                    f"{warm.get('p95')} | {warm.get('min')} | {warm.get('max')} | "
+                    f"{warm.get('n')} |"
+                )
+            lines.append("")
+
+        voices = live.get("voices")
+        if voices:
+            lines += [
+                "**voices** — identical pronunciation probe, so duration is directly "
+                "comparable. Speaking rate is not in Rime's catalog and is the one "
+                "objective thing separating these candidates.",
+                "",
+                "| Speaker | Audio | Words/min | WAV |",
+                "|---|---:|---:|---|",
+            ]
+            for name, data in voices.items():
+                if "error" in data:
+                    lines.append(f"| `{name}` | error: {data['error']} | | |")
+                    continue
+                lines.append(
+                    f"| `{name}` | {round((data.get('audio_ms') or 0) / 1000, 1)}s | "
+                    f"{data.get('words_per_minute')} | `{data.get('wav')}` |"
+                )
+            lines.append("")
+
     # The honest column: what has not been measured.
     lines += [
         "### Not yet measured",

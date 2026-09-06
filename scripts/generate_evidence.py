@@ -229,6 +229,7 @@ def main() -> int:
         "rime_config": json.loads((artifacts / "rime_config.json").read_text(encoding="utf-8")),
         "totals": {"runs": total_runs, "passes": total_passes, "failures": total_runs - total_passes},
         "tests": scenario_results,
+        "live_rime_measurements": _load_voice_benchmark(artifacts),
         "not_yet_measured": {
             "interruption_to_obsolete_audio_stop_ms": {
                 "runs": 0,
@@ -237,28 +238,22 @@ def main() -> int:
                 "max": None,
                 "measured": False,
                 "reason": (
-                    "Requires a live LiveKit session with real audio. No credentials "
-                    "were configured when this run was generated. No target is claimed "
-                    "until a baseline is measured."
-                ),
-            },
-            "rime_time_to_first_audio_ms": {
-                "runs": 0,
-                "p50": None,
-                "p95": None,
-                "measured": False,
-                "reason": "Requires RIME_API_KEY. Run scripts/run_voice_benchmark.py.",
-            },
-            "rime_region_comparison": {
-                "measured": False,
-                "reason": (
-                    "us-west and us-east must be compared from the deployed worker's "
-                    "region, not from a developer laptop. Run after deployment."
+                    "Requires a live LiveKit session with real audio and a human "
+                    "interrupting. Not derivable from the in-process harness. No target "
+                    "is claimed until a baseline is measured."
                 ),
             },
             "telephony_sip_path": {
                 "measured": False,
                 "reason": "No SIP trunk configured yet (Phase 9).",
+            },
+            "rime_ttfa_from_deployed_worker": {
+                "measured": False,
+                "reason": (
+                    "The Rime numbers in live_rime_measurements were taken from a "
+                    "development machine, not from the deployed worker. They describe "
+                    "that machine's network path, not production."
+                ),
             },
         },
     }
@@ -271,6 +266,39 @@ def main() -> int:
     print(f"Wrote {target.relative_to(REPO_ROOT)}")
     print(f"Wrote {len(list((artifacts / 'events').glob('*.jsonl')))} event logs to artifacts/events/")
     return 0 if total_passes == total_runs else 1
+
+
+def _load_voice_benchmark(artifacts: Path) -> dict[str, Any]:
+    """Fold in real Rime measurements from scripts/run_voice_benchmark.py, if present.
+
+    Absent rather than faked: with no benchmark file, this returns a ``measured: false``
+    record naming the command that would produce one. It never synthesises a number.
+    """
+    path = artifacts / "voice_benchmark.json"
+    if not path.is_file():
+        return {
+            "measured": False,
+            "reason": (
+                "No artifacts/voice_benchmark.json. Run "
+                "`python scripts/run_voice_benchmark.py --all` with RIME_API_KEY set."
+            ),
+        }
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {"measured": False, "reason": f"voice_benchmark.json is unreadable: {exc}"}
+
+    summary: dict[str, Any] = {
+        "measured": True,
+        "source": "artifacts/voice_benchmark.json",
+        "measured_at": data.get("timestamp"),
+        "measured_from": data.get("measured_from"),
+        "note": data.get("note"),
+    }
+    for dimension in ("regions", "segments", "models", "sample_rates", "voices"):
+        if dimension in data:
+            summary[dimension] = data[dimension]
+    return summary
 
 
 def _version(module: str) -> str:

@@ -67,4 +67,6 @@ USER appuser
 
 # No secrets are baked in. RIME_API_KEY, LIVEKIT_* and any model-provider key are
 # supplied at run time through LiveKit Cloud secret management.
-CMD ["uv", "run", "src/unloop/agent.py", "start"]
+# Package layout (src/unloop/), so the entrypoint is a module, not a path. Running
+# the file directly breaks its relative imports.
+CMD ["uv", "run", "python", "-m", "unloop.agent", "start"]

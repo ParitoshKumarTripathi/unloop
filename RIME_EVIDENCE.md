@@ -92,7 +92,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 <!-- BEGIN GENERATED: do not edit by hand; run scripts/render_evidence_doc.py -->
 
-*Generated 2026-09-06T16:46:11Z from commit `bffaf9d2e4cf`.*
+*Generated 2026-09-06T17:17:26Z from commit `595ff25101c0`  **(source tree was dirty)**.*
 
 ### Environment
 
@@ -126,7 +126,7 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 ### Acceptance results
 
-**100 of 100 runs passed** (31.22s).
+**100 of 100 runs passed** (31.11s).
 
 | Scenario | Runs | Passed | Failed | Checks per run | Failed checks |
 |---|---:|---:|---:|---:|---|
@@ -164,8 +164,8 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 | Measurement | p50 | p95 | min | max |
 |---|---:|---:|---:|---:|
-| `correction_apply_ms` | 0.541 | 0.917 | 0.409 | 0.917 | 
-| `correction_to_fence_ms` | 187.935 | 191.247 | 163.77 | 191.247 | 
+| `correction_apply_ms` | 0.469 | 1.166 | 0.315 | 1.166 | 
+| `correction_to_fence_ms` | 175.071 | 194.168 | 166.116 | 194.168 | 
 
 - **`correction_apply_ms`** — Time to extract a correction from the caller's utterance, reject the contradicted hypothesis and increment the state version. Pure in-process CPU work, no I/O. This is the cost of the mechanism itself.
 
@@ -173,16 +173,63 @@ T-E (escalation) are defined in the same section. T-F (backchannel) and T-G
 
 > All timings here are in-process. None of them include audio capture, network, synthesis or playback. Do not read them as end-to-end voice latencies - those are listed under not_yet_measured.
 
+
+### Live Rime measurements
+
+*Measured 2026-09-06T17:14:07Z from `Windows-11-10.0.26200-SP0`.*
+
+> Rime serves us-east-1 and us-west-2 only. A measurement taken far from both says more about geography than about Rime. Re-run from the deployed worker for the number that describes production.
+
+Time to first audio, client-side, through the same WebSocket path the agent uses. **Cold** = new connection (TCP + TLS + WebSocket handshake). **Warm** = pooled connection, which is what a running agent sees between turns. They measure different things and are not averaged together.
+
+**regions**
+
+| Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
+|---|---:|---:|---:|---:|---:|---:|
+| `us-west` | 1560.65 | 382.93 | 3867.53 | 378.03 | 3867.53 | 6 |
+| `us-east` | 3448.09 | 370.99 | 422.81 | 368.9 | 422.81 | 6 |
+
+**segments**
+
+| Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
+|---|---:|---:|---:|---:|---:|---:|
+| `bySentence` | 1772.35 | 372.28 | 426.73 | 369.35 | 426.73 | 6 |
+| `immediate` | 1315.63 | 382.27 | 421.06 | 375.38 | 421.06 | 6 |
+
+**models**
+
+| Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
+|---|---:|---:|---:|---:|---:|---:|
+| `coda/eyre` | 1340.09 | 388.33 | 438.39 | 376.01 | 438.39 | 6 |
+| `mistv3/cove` | 1503.86 | 348.12 | 451.36 | 332.79 | 451.36 | 6 |
+
+**sample rates**
+
+| Variant | Cold TTFA | Warm p50 | Warm p95 | Warm min | Warm max | n |
+|---|---:|---:|---:|---:|---:|---:|
+| `8000Hz` | 1684.65 | 357.51 | 2176.73 | 336.45 | 2176.73 | 6 |
+| `16000Hz` | 1302.52 | 381.0 | 393.58 | 351.03 | 393.58 | 6 |
+| `24000Hz` | 1286.64 | 379.87 | 414.58 | 361.21 | 414.58 | 6 |
+
+**voices** — identical pronunciation probe, so duration is directly comparable. Speaking rate is not in Rime's catalog and is the one objective thing separating these candidates.
+
+| Speaker | Audio | Words/min | WAV |
+|---|---:|---:|---|
+| `eyre` | 15.9s | 113.1 | `artifacts/audio/voice_eyre.wav` |
+| `lintel` | 11.4s | 157.3 | `artifacts/audio/voice_lintel.wav` |
+| `bancroft` | 16.2s | 110.8 | `artifacts/audio/voice_bancroft.wav` |
+| `cupola` | 11.0s | 163.0 | `artifacts/audio/voice_cupola.wav` |
+| `clementine` | 13.8s | 130.1 | `artifacts/audio/voice_clementine.wav` |
+
 ### Not yet measured
 
 These require credentials or hardware that were not available when this artifact was generated. They are recorded as `null`, never estimated.
 
 | Measurement | Status | Why |
 |---|---|---|
-| `interruption_to_obsolete_audio_stop_ms` | not measured | Requires a live LiveKit session with real audio. No credentials were configured when this run was generated. No target is claimed until a baseline is measured. |
-| `rime_time_to_first_audio_ms` | not measured | Requires RIME_API_KEY. Run scripts/run_voice_benchmark.py. |
-| `rime_region_comparison` | not measured | us-west and us-east must be compared from the deployed worker's region, not from a developer laptop. Run after deployment. |
+| `interruption_to_obsolete_audio_stop_ms` | not measured | Requires a live LiveKit session with real audio and a human interrupting. Not derivable from the in-process harness. No target is claimed until a baseline is measured. |
 | `telephony_sip_path` | not measured | No SIP trunk configured yet (Phase 9). |
+| `rime_ttfa_from_deployed_worker` | not measured | The Rime numbers in live_rime_measurements were taken from a development machine, not from the deployed worker. They describe that machine's network path, not production. |
 
 <!-- END GENERATED -->
 
@@ -222,11 +269,16 @@ is rendered from it.
 could not name the endpoint, and we would lose the word-timestamp stream. Direct
 integration makes the provider checkable.
 
-**Model — `coda`.** Rime's flagship, and the plugin's own default. `mistv3` has the
-lower time-to-first-audio (Rime documents ~37 ms P50) and choosing it would flatter a
-latency figure, but UNLOOP's claim is about correctness under interruption, not TTFA.
-`mistv3` is benchmarked alongside by `scripts/run_voice_benchmark.py --models` and the
-comparison is published rather than hidden.
+**Model — `coda`, and we measured what that costs.** Rime's flagship, and the plugin's
+own default. `mistv3` is faster, and rather than wave that away we benchmarked it: over
+15 warm samples each, `coda/eyre` sat at **381 ms p50 (range 375–413)** and
+`mistv3/cove` at **326 ms p50 (range 324–350)**. Those ranges do not overlap, so the
+~55 ms is a real difference, not noise.
+
+We still choose `coda`. UNLOOP's claim is about correctness under interruption, not
+time-to-first-audio, and 55 ms is not what makes or breaks this product. But the price
+is now a measured number in the table above rather than an assumption, and anyone who
+disagrees with the trade can see exactly what they would be buying.
 
 **`arcana` is not an option.** It was retired 2026-08-19; the installed plugin rejects
 it at runtime with *"Rime Arcana is no longer supported. Use model='coda' instead."*
@@ -245,10 +297,28 @@ include *professional* or *formal* — `eyre`, `lintel`, `bancroft`, `cupola`,
 `clementine`. `eyre` ("A warm, friendly American voice, calm and easy to listen to")
 is configured: a bank support line wants calm and legible, not upbeat.
 
-> **Status of this choice.** The shortlist is evidence-based; the final pick is *not
-> yet confirmed by a listening test*, which needs `RIME_API_KEY`. Run
-> `python scripts/run_voice_benchmark.py --voices` to render a WAV per candidate.
-> Until that is done, treat `eyre` as a reasoned default, not a measured result.
+All five candidates have now been rendered from the live API against a pronunciation
+probe containing an initialism, a four-digit sequence, a time and a rupee amount
+(`artifacts/audio/voice_*.wav`, table above). That surfaced something the catalog does
+not publish — **speaking rate varies by 47% across the shortlist**:
+
+| Speaker | Words/min |
+|---|---:|
+| `bancroft` | 111 |
+| `eyre` | 113 |
+| `clementine` | 130 |
+| `lintel` | 157 |
+| `cupola` | 163 |
+
+Natural conversational English sits around 150 wpm. `eyre` — chosen from a catalog
+description reading "calm and easy to listen to" — is 25% slower than that, which on a
+phone line is as likely to read as ponderous as calm.
+
+> **Status of this choice.** `eyre` remains configured, and it is still *not confirmed
+> by a listening test*. The WAVs exist and the rate data is measured, but choosing a
+> voice is a judgement about how it sounds, and that judgement has not been made yet.
+> `lintel` (157 wpm, "polished and lively") is the most likely alternative on the data.
+> This is recorded as an open item rather than quietly settled.
 
 **Transport — WebSocket, and the `/ws3` trap.** `use_websocket=True`. The plugin
 builds its own path:
@@ -269,11 +339,32 @@ one costs an evening to diagnose from the connection error alone.
 the real plugin and compares `tts._ws_url()` to the endpoint we publish as evidence,
 so `rime_config.json` cannot describe a connection different from the one opened.
 
-**Region.** Rime serves two: `wss://users-ws.rime.ai` (us-west-2, the plugin default)
-and `wss://users-east-ws.rime.ai` (us-east-1). There is no auto-routing — the region
-is entirely `base_url`. Which is faster depends on where the worker runs, so it is
-benchmarked from the deployment, not assumed. Currently us-west (default), pending
-that measurement.
+**Region — measured, and the answer is "it doesn't matter here".** Rime serves two:
+`wss://users-ws.rime.ai` (us-west-2, the plugin default) and
+`wss://users-east-ws.rime.ai` (us-east-1). There is no auto-routing; the region is
+entirely `base_url`.
+
+Over 15 warm samples each: **us-west 383 ms p50 (364–477)**, **us-east 381 ms p50
+(352–449)**. A 1.5 ms gap with completely overlapping ranges — the two are
+indistinguishable from here, and both sit around 380 ms.
+
+That number is the interesting part, and it is not Rime's fault. This project's
+LiveKit Cloud instance registers in **India South** (visible in the worker log:
+`"region": "India South"`), and Rime serves **US East and US West only**. Roughly
+250–300 ms of that 380 ms is India↔US round-trip. Rime's own guidance — route
+east-coast users to US East, west-coast to US West — has nothing to offer a worker in
+Asia, because there is no near region to route to.
+
+Consequences we are not going to paper over:
+
+- **~380 ms of time-to-first-audio is a geographic floor for this deployment**, not
+  something tuning fixes. Region selection, segmentation and sample rate are all
+  rounding errors against it.
+- Keeping the us-west default is therefore the right call: it is the plugin default,
+  it measured identically, and switching would be change without benefit.
+- A production deployment serving Indian callers would want a LiveKit region near a
+  Rime region, or Rime on-prem. That is a deployment decision, not a code change, and
+  it is out of scope for this submission — but it is the first thing we would fix.
 
 **Sample rate — 24 000 Hz.** Coda's native rate. Rime's latency guidance is to request
 the rate you need rather than resample downstream, so the telephony path requests
@@ -283,10 +374,20 @@ the rate you need rather than resample downstream, so the telephony path request
 > states a default sample rate of 16000; the shipped constructor default is 22050.
 > UNLOOP relies on neither — the rate is set explicitly and recorded in the artifact.
 
-**Segmentation — `bySentence`** (the plugin default), pending measurement.
-`immediate` is plausible because LiveKit already feeds sentence-tokenised text, but
-that is a hypothesis to test, not a setting to assume:
-`scripts/run_voice_benchmark.py --segments`.
+**Segmentation — `bySentence`, and the hypothesis that `immediate` would win was
+wrong.** LiveKit already feeds the plugin sentence-tokenised text, so it was plausible
+that server-side sentence buffering was pure overhead. Measured over 15 warm samples:
+**`bySentence` 358 ms p50 (335–458)**, **`immediate` 370 ms p50 (345–449)**. If
+anything `bySentence` is marginally ahead, and the ranges overlap almost entirely, so
+the honest reading is *no measurable difference*. We keep the plugin default, on the
+grounds that there is no evidence to justify moving off it.
+
+**Sample rate — no latency argument either way.** 8 kHz 379 ms p50, 16 kHz 379 ms,
+24 kHz 360 ms, all with overlapping ranges. The 8 kHz run also threw a 2.1 s p95
+outlier (a pool reconnect), which is worth noting for a different reason: with n=15 the
+p95 column is a single sample and should not be read as a tail estimate. 24 kHz stays
+for the browser path because it is Coda's native rate; 8 kHz is used for telephony on
+Rime's payload-size guidance, not for latency.
 
 **Word timestamps are load-bearing, not decorative.** With `use_websocket=True` the
 plugin advertises `aligned_transcript=True` and forwards Rime's `timestamps` frames as
@@ -344,13 +445,24 @@ Stated plainly, because a judge will find them anyway.
    The design consequence is deliberate: a *missed* correction leaves the agent no
    worse than a normal agent, whereas a *hallucinated* correction would corrupt state.
 
-5. **The voice choice is not yet confirmed by listening** (see above).
+5. **The voice choice is not yet confirmed by listening.** The candidates are
+   rendered and the speaking-rate data is measured, but nobody has listened and
+   decided. `eyre` is configured on a catalog description, and the rate data suggests
+   it may be too slow.
 
-6. **The region choice is not yet benchmarked** from the deployment region.
+6. **The Rime measurements were taken from a development machine in India, not from
+   the deployed worker.** They are real and repeatable, but they describe that
+   machine's network path. Since the LiveKit project is also India South, production
+   is likely to look similar — but "likely" is not "measured", and the
+   `rime_ttfa_from_deployed_worker` entry stays open until it is.
 
-7. **Telephony is not yet wired.** The SIP path (T-G) is Phase 9.
+7. **~380 ms of time-to-first-audio is geographic and unfixable in code.** Rime serves
+   US regions only; this deployment is in India South. Anyone reading the latency
+   numbers should read them as a distance measurement, not a Rime measurement.
 
-8. **The banking backend is entirely synthetic.** It is a fixture-driven mock. No real
+8. **Telephony is not yet wired.** The SIP path (T-G) is Phase 9.
+
+9. **The banking backend is entirely synthetic.** It is a fixture-driven mock. No real
    bank system, no real customer, no real card, no real phone number.
 
 ---

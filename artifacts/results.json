@@ -1,8 +1,8 @@
 {
-  "git_commit": "bffaf9d2e4cf25b88b58c4ab4827537c73221431",
-  "source_tree_dirty": false,
-  "timestamp": "2026-09-06T16:46:11Z",
-  "duration_s": 31.22,
+  "git_commit": "595ff25101c065e35042eb2c7b2b323b4c581ffd",
+  "source_tree_dirty": true,
+  "timestamp": "2026-09-06T17:17:26Z",
+  "duration_s": 31.11,
   "environment": {
     "python": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -51,8 +51,8 @@
     "api_key_present": false,
     "verified_against_live_catalog": null,
     "config_problems": [],
-    "git_commit": "bffaf9d2e4cf25b88b58c4ab4827537c73221431",
-    "timestamp": "2026-09-06T16:45:40Z"
+    "git_commit": "595ff25101c065e35042eb2c7b2b323b4c581ffd",
+    "timestamp": "2026-09-06T17:16:54Z"
   },
   "totals": {
     "runs": 100,
@@ -87,16 +87,16 @@
       "failed_checks": [],
       "in_process_timings_ms": {
         "correction_apply_ms": {
-          "p50": 0.541,
-          "p95": 0.917,
-          "max": 0.917,
-          "min": 0.409
+          "p50": 0.469,
+          "p95": 1.166,
+          "max": 1.166,
+          "min": 0.315
         },
         "correction_to_fence_ms": {
-          "p50": 187.935,
-          "p95": 191.247,
-          "max": 191.247,
-          "min": 163.77
+          "p50": 175.071,
+          "p95": 194.168,
+          "max": 194.168,
+          "min": 166.116
         }
       }
     },
@@ -160,6 +160,232 @@
       "in_process_timings_ms": {}
     }
   },
+  "live_rime_measurements": {
+    "measured": true,
+    "source": "artifacts/voice_benchmark.json",
+    "measured_at": "2026-09-06T17:14:07Z",
+    "measured_from": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "caveat": "Rime serves us-east-1 and us-west-2 only. A measurement taken far from both says more about geography than about Rime. Re-run from the deployed worker for the number that describes production."
+    },
+    "note": "Client-side measurements through livekit-plugins-rime over the same WebSocket path the agent uses. TTFA includes network round-trip, so it is dominated by the distance between this machine and the Rime region. Cold (new connection: TCP + TLS + WebSocket handshake) and warm (pooled connection, what a running agent sees between turns) are reported separately and must not be averaged together.",
+    "regions": {
+      "us-west": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 24000
+        },
+        "cold_ttfa_ms": 1560.65,
+        "warm_ttfa_ms": {
+          "p50": 382.93,
+          "p95": 3867.53,
+          "min": 378.03,
+          "max": 3867.53,
+          "n": 6
+        },
+        "audio_ms": 8720.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+      },
+      "us-east": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-east-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 24000
+        },
+        "cold_ttfa_ms": 3448.09,
+        "warm_ttfa_ms": {
+          "p50": 370.99,
+          "p95": 422.81,
+          "min": 368.9,
+          "max": 422.81,
+          "n": 6
+        },
+        "audio_ms": 8480.0,
+        "resolved_endpoint": "wss://users-east-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+      }
+    },
+    "segments": {
+      "bySentence": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 24000
+        },
+        "cold_ttfa_ms": 1772.35,
+        "warm_ttfa_ms": {
+          "p50": 372.28,
+          "p95": 426.73,
+          "min": 369.35,
+          "max": 426.73,
+          "n": 6
+        },
+        "audio_ms": 8640.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+      },
+      "immediate": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "immediate",
+          "sample_rate": 24000
+        },
+        "cold_ttfa_ms": 1315.63,
+        "warm_ttfa_ms": {
+          "p50": 382.27,
+          "p95": 421.06,
+          "min": 375.38,
+          "max": 421.06,
+          "n": 6
+        },
+        "audio_ms": 9440.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=immediate&lang=eng"
+      }
+    },
+    "models": {
+      "coda/eyre": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 24000
+        },
+        "cold_ttfa_ms": 1340.09,
+        "warm_ttfa_ms": {
+          "p50": 388.33,
+          "p95": 438.39,
+          "min": 376.01,
+          "max": 438.39,
+          "n": 6
+        },
+        "audio_ms": 9440.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+      },
+      "mistv3/cove": {
+        "config": {
+          "model": "mistv3",
+          "speaker": "cove",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 22050
+        },
+        "cold_ttfa_ms": 1503.86,
+        "warm_ttfa_ms": {
+          "p50": 348.12,
+          "p95": 451.36,
+          "min": 332.79,
+          "max": 451.36,
+          "n": 6
+        },
+        "audio_ms": 7840.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=cove&modelId=mistv3&audioFormat=pcm&samplingRate=22050&segment=bySentence&lang=eng"
+      }
+    },
+    "sample_rates": {
+      "8000Hz": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 8000
+        },
+        "cold_ttfa_ms": 1684.65,
+        "warm_ttfa_ms": {
+          "p50": 357.51,
+          "p95": 2176.73,
+          "min": 336.45,
+          "max": 2176.73,
+          "n": 6
+        },
+        "audio_ms": 10100.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=8000&segment=bySentence&lang=eng"
+      },
+      "16000Hz": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 16000
+        },
+        "cold_ttfa_ms": 1302.52,
+        "warm_ttfa_ms": {
+          "p50": 381.0,
+          "p95": 393.58,
+          "min": 351.03,
+          "max": 393.58,
+          "n": 6
+        },
+        "audio_ms": 9140.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=16000&segment=bySentence&lang=eng"
+      },
+      "24000Hz": {
+        "config": {
+          "model": "coda",
+          "speaker": "eyre",
+          "base_url": "wss://users-ws.rime.ai",
+          "segment": "bySentence",
+          "sample_rate": 24000
+        },
+        "cold_ttfa_ms": 1286.64,
+        "warm_ttfa_ms": {
+          "p50": 379.87,
+          "p95": 414.58,
+          "min": 361.21,
+          "max": 414.58,
+          "n": 6
+        },
+        "audio_ms": 9200.0,
+        "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+      }
+    },
+    "voices": {
+      "eyre": {
+        "ttfa_ms": 1474.55,
+        "audio_ms": 15920.0,
+        "words_per_minute": 113.1,
+        "probe_words": 30,
+        "wav": "artifacts/audio/voice_eyre.wav"
+      },
+      "lintel": {
+        "ttfa_ms": 1358.55,
+        "audio_ms": 11440.0,
+        "words_per_minute": 157.3,
+        "probe_words": 30,
+        "wav": "artifacts/audio/voice_lintel.wav"
+      },
+      "bancroft": {
+        "ttfa_ms": 1308.24,
+        "audio_ms": 16240.0,
+        "words_per_minute": 110.8,
+        "probe_words": 30,
+        "wav": "artifacts/audio/voice_bancroft.wav"
+      },
+      "cupola": {
+        "ttfa_ms": 1508.77,
+        "audio_ms": 11040.0,
+        "words_per_minute": 163.0,
+        "probe_words": 30,
+        "wav": "artifacts/audio/voice_cupola.wav"
+      },
+      "clementine": {
+        "ttfa_ms": 1276.77,
+        "audio_ms": 13840.0,
+        "words_per_minute": 130.1,
+        "probe_words": 30,
+        "wav": "artifacts/audio/voice_clementine.wav"
+      }
+    }
+  },
   "not_yet_measured": {
     "interruption_to_obsolete_audio_stop_ms": {
       "runs": 0,
@@ -167,22 +393,15 @@
       "p95": null,
       "max": null,
       "measured": false,
-      "reason": "Requires a live LiveKit session with real audio. No credentials were configured when this run was generated. No target is claimed until a baseline is measured."
-    },
-    "rime_time_to_first_audio_ms": {
-      "runs": 0,
-      "p50": null,
-      "p95": null,
-      "measured": false,
-      "reason": "Requires RIME_API_KEY. Run scripts/run_voice_benchmark.py."
-    },
-    "rime_region_comparison": {
-      "measured": false,
-      "reason": "us-west and us-east must be compared from the deployed worker's region, not from a developer laptop. Run after deployment."
+      "reason": "Requires a live LiveKit session with real audio and a human interrupting. Not derivable from the in-process harness. No target is claimed until a baseline is measured."
     },
     "telephony_sip_path": {
       "measured": false,
       "reason": "No SIP trunk configured yet (Phase 9)."
+    },
+    "rime_ttfa_from_deployed_worker": {
+      "measured": false,
+      "reason": "The Rime numbers in live_rime_measurements were taken from a development machine, not from the deployed worker. They describe that machine's network path, not production."
     }
   }
 }

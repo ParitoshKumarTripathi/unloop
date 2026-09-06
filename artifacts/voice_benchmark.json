@@ -1,0 +1,225 @@
+{
+  "timestamp": "2026-09-06T17:18:23Z",
+  "note": "Client-side measurements through livekit-plugins-rime over the same WebSocket path the agent uses. TTFA includes network round-trip, so it is dominated by the distance between this machine and the Rime region. Cold (new connection: TCP + TLS + WebSocket handshake) and warm (pooled connection, what a running agent sees between turns) are reported separately and must not be averaged together.",
+  "measured_from": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "caveat": "Rime serves us-east-1 and us-west-2 only. A measurement taken far from both says more about geography than about Rime. Re-run from the deployed worker for the number that describes production."
+  },
+  "runs_per_variant": 15,
+  "regions": {
+    "us-west": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 24000
+      },
+      "cold_ttfa_ms": 4747.32,
+      "warm_ttfa_ms": {
+        "p50": 382.66,
+        "p95": 476.55,
+        "min": 364.2,
+        "max": 476.55,
+        "n": 15
+      },
+      "audio_ms": 8880.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+    },
+    "us-east": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-east-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 24000
+      },
+      "cold_ttfa_ms": 1502.36,
+      "warm_ttfa_ms": {
+        "p50": 381.15,
+        "p95": 449.25,
+        "min": 352.0,
+        "max": 449.25,
+        "n": 15
+      },
+      "audio_ms": 8240.0,
+      "resolved_endpoint": "wss://users-east-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+    }
+  },
+  "segments": {
+    "bySentence": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 24000
+      },
+      "cold_ttfa_ms": 1431.18,
+      "warm_ttfa_ms": {
+        "p50": 358.41,
+        "p95": 458.33,
+        "min": 334.95,
+        "max": 458.33,
+        "n": 15
+      },
+      "audio_ms": 8720.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+    },
+    "immediate": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "immediate",
+        "sample_rate": 24000
+      },
+      "cold_ttfa_ms": 1270.75,
+      "warm_ttfa_ms": {
+        "p50": 370.11,
+        "p95": 448.59,
+        "min": 345.37,
+        "max": 448.59,
+        "n": 15
+      },
+      "audio_ms": 8720.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=immediate&lang=eng"
+    }
+  },
+  "models": {
+    "coda/eyre": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 24000
+      },
+      "cold_ttfa_ms": 1502.58,
+      "warm_ttfa_ms": {
+        "p50": 381.0,
+        "p95": 413.07,
+        "min": 375.12,
+        "max": 413.07,
+        "n": 15
+      },
+      "audio_ms": 9440.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+    },
+    "mistv3/cove": {
+      "config": {
+        "model": "mistv3",
+        "speaker": "cove",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 22050
+      },
+      "cold_ttfa_ms": 1228.27,
+      "warm_ttfa_ms": {
+        "p50": 326.36,
+        "p95": 349.97,
+        "min": 323.85,
+        "max": 349.97,
+        "n": 15
+      },
+      "audio_ms": 7780.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=cove&modelId=mistv3&audioFormat=pcm&samplingRate=22050&segment=bySentence&lang=eng"
+    }
+  },
+  "sample_rates": {
+    "8000Hz": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 8000
+      },
+      "cold_ttfa_ms": 1328.28,
+      "warm_ttfa_ms": {
+        "p50": 378.6,
+        "p95": 2113.01,
+        "min": 376.14,
+        "max": 2113.01,
+        "n": 15
+      },
+      "audio_ms": 9460.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=8000&segment=bySentence&lang=eng"
+    },
+    "16000Hz": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 16000
+      },
+      "cold_ttfa_ms": 1422.01,
+      "warm_ttfa_ms": {
+        "p50": 378.65,
+        "p95": 710.72,
+        "min": 373.99,
+        "max": 710.72,
+        "n": 15
+      },
+      "audio_ms": 8500.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=16000&segment=bySentence&lang=eng"
+    },
+    "24000Hz": {
+      "config": {
+        "model": "coda",
+        "speaker": "eyre",
+        "base_url": "wss://users-ws.rime.ai",
+        "segment": "bySentence",
+        "sample_rate": 24000
+      },
+      "cold_ttfa_ms": 1311.9,
+      "warm_ttfa_ms": {
+        "p50": 360.37,
+        "p95": 445.79,
+        "min": 338.38,
+        "max": 445.79,
+        "n": 15
+      },
+      "audio_ms": 8960.0,
+      "resolved_endpoint": "wss://users-ws.rime.ai/ws3?speaker=eyre&modelId=coda&audioFormat=pcm&samplingRate=24000&segment=bySentence&lang=eng"
+    }
+  },
+  "voices": {
+    "eyre": {
+      "ttfa_ms": 1474.55,
+      "audio_ms": 15920.0,
+      "words_per_minute": 113.1,
+      "probe_words": 30,
+      "wav": "artifacts/audio/voice_eyre.wav"
+    },
+    "lintel": {
+      "ttfa_ms": 1358.55,
+      "audio_ms": 11440.0,
+      "words_per_minute": 157.3,
+      "probe_words": 30,
+      "wav": "artifacts/audio/voice_lintel.wav"
+    },
+    "bancroft": {
+      "ttfa_ms": 1308.24,
+      "audio_ms": 16240.0,
+      "words_per_minute": 110.8,
+      "probe_words": 30,
+      "wav": "artifacts/audio/voice_bancroft.wav"
+    },
+    "cupola": {
+      "ttfa_ms": 1508.77,
+      "audio_ms": 11040.0,
+      "words_per_minute": 163.0,
+      "probe_words": 30,
+      "wav": "artifacts/audio/voice_cupola.wav"
+    },
+    "clementine": {
+      "ttfa_ms": 1276.77,
+      "audio_ms": 13840.0,
+      "words_per_minute": 130.1,
+      "probe_words": 30,
+      "wav": "artifacts/audio/voice_clementine.wav"
+    }
+  }
+}

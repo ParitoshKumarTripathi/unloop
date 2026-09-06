@@ -76,13 +76,13 @@ tasks:
     desc: Run the agent locally in console mode (needs LiveKit + Rime credentials)
     dir: agent
     cmds:
-      - ../{{.PY}} src/unloop/agent.py console
+      - ../{{.PY}} -m unloop.agent console
 
   dev-room:
     desc: Run the agent as a worker connected to LiveKit Cloud
     dir: agent
     cmds:
-      - ../{{.PY}} src/unloop/agent.py dev
+      - ../{{.PY}} -m unloop.agent dev
 
   docker-build:
     desc: Build the agent image (must run from the repo root - it needs fixtures/)
