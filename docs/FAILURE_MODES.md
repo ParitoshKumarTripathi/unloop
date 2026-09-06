@@ -202,6 +202,35 @@ reader can see exactly which half of the system has been measured.
 
 ---
 
+## 2b. Known upstream issues
+
+### `Tried to add a track for a participant, that's not present`
+
+Seen in the browser console during connection on `livekit-client` 2.17.2 (the version
+the starter pinned).
+
+*Cause:* WebRTC fires `ontrack` as soon as `setRemoteDescription` is called on the
+offer, before ICE connectivity exists, so `livekit-client` defers those callbacks until
+the room reaches `Connected`. In 2.17.2 a deferred callback could still fire after the
+subscription had already failed, by which point the participant was gone — and the
+`MediaStream` id then carries no `participantSid|streamId` packing, so
+`unpackStreamId` hands `onTrackAdded` a bare UUID that matches nothing. The library
+logs it at `error` level.
+
+*Not our code.* UNLOOP never adds, removes or subscribes to tracks; the panel only
+reads a data channel.
+
+*Fixed by* upgrading to `livekit-client` 2.22.2, which added `pendingTrackAddedCallbacks`
+so deferred callbacks are cancelled when a subscription fails
+([client-sdk-js#2019](https://github.com/livekit/client-sdk-js/pull/2019), released in
+2.22.0). `apps/web/package.json` now declares `^2.22.2` rather than the starter's
+`^2.17.2`, so a fresh clone cannot resolve back below the fix.
+
+That release train also carries a data-channel close race fix (2.20.0), which matters
+here because the resolution panel is driven entirely over the data channel.
+
+---
+
 ## 3. Things deliberately not built
 
 - **No fallback TTS provider.** Silent failover would make the judged path unverifiable.
