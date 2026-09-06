@@ -105,7 +105,11 @@ class Hypothesis:
     @property
     def is_speakable(self) -> bool:
         """Whether the agent may assert this hypothesis to the caller."""
-        return self.status in (HypothesisStatus.ACTIVE, HypothesisStatus.SUPPORTED, HypothesisStatus.RESOLVED)
+        return self.status in (
+            HypothesisStatus.ACTIVE,
+            HypothesisStatus.SUPPORTED,
+            HypothesisStatus.RESOLVED,
+        )
 
     def add_support(self, evidence: Evidence, *, turn: int) -> None:
         if not evidence.supports:
@@ -260,6 +264,7 @@ class Hypothesis:
 # the diagnosis a naive agent locks onto, and the one the caller refutes.
 # ---------------------------------------------------------------------------
 
+
 def _rx(pattern: str) -> re.Pattern[str]:
     return re.compile(pattern, re.IGNORECASE)
 
@@ -285,7 +290,9 @@ def build_otp_hypotheses() -> list[Hypothesis]:
             label="The debit card is blocked or deactivated",
             branch="card",
             assertion_patterns=[
-                _rx(r"\bcard\b[^.?!]{0,40}\b(?:is|appears|seems|looks|might be|may be|has been)\b[^.?!]{0,20}\b(?:blocked|frozen|deactivated|disabled|suspended|restricted)\b"),
+                _rx(
+                    r"\bcard\b[^.?!]{0,40}\b(?:is|appears|seems|looks|might be|may be|has been)\b[^.?!]{0,20}\b(?:blocked|frozen|deactivated|disabled|suspended|restricted)\b"
+                ),
                 _rx(r"\b(?:blocked|frozen|deactivated|disabled|suspended)\b[^.?!]{0,20}\bcard\b"),
                 _rx(r"\bcard\s+block\b[^.?!]{0,30}\b(?:is|explains|causing|reason|why)\b"),
             ],
@@ -294,10 +301,18 @@ def build_otp_hypotheses() -> list[Hypothesis]:
         Hypothesis(
             id="ONLINE_TXN_DISABLED",
             label="Online or e-commerce transactions are switched off for the card",
-            branch="card",
+            # Its own branch, not "card". Rejecting "the card is blocked" says nothing
+            # about whether online use is switched off, and the loop detector uses the
+            # branch as its unit of strategy: lumping them together would make moving
+            # to a genuinely different check look like staying put.
+            branch="online_txn",
             assertion_patterns=[
-                _rx(r"\bonline\s+(?:transactions?|payments?)\b[^.?!]{0,30}\b(?:are|is|been)\b[^.?!]{0,15}\b(?:disabled|off|turned off|blocked|not enabled)\b"),
-                _rx(r"\b(?:disabled|turned off)\b[^.?!]{0,20}\bonline\s+(?:transactions?|payments?)\b"),
+                _rx(
+                    r"\bonline\s+(?:transactions?|payments?)\b[^.?!]{0,30}\b(?:are|is|been)\b[^.?!]{0,15}\b(?:disabled|off|turned off|blocked|not enabled)\b"
+                ),
+                _rx(
+                    r"\b(?:disabled|turned off)\b[^.?!]{0,20}\bonline\s+(?:transactions?|payments?)\b"
+                ),
             ],
             negation_cues=_NEGATION_CUES,
         ),
@@ -306,7 +321,9 @@ def build_otp_hypotheses() -> list[Hypothesis]:
             label="The mobile number on file is unverified or out of date",
             branch="contact",
             assertion_patterns=[
-                _rx(r"\b(?:mobile|phone)\s+number\b[^.?!]{0,40}\b(?:is|appears|seems)\b[^.?!]{0,20}\b(?:unverified|not verified|not registered|out of date|outdated|wrong|incorrect)\b"),
+                _rx(
+                    r"\b(?:mobile|phone)\s+number\b[^.?!]{0,40}\b(?:is|appears|seems)\b[^.?!]{0,20}\b(?:unverified|not verified|not registered|out of date|outdated|wrong|incorrect)\b"
+                ),
                 _rx(r"\b(?:unverified|unregistered)\b[^.?!]{0,20}\b(?:mobile|phone)\s+number\b"),
             ],
             negation_cues=_NEGATION_CUES,
@@ -316,8 +333,12 @@ def build_otp_hypotheses() -> list[Hypothesis]:
             label="The bank never generated an OTP for the payment",
             branch="otp_generation",
             assertion_patterns=[
-                _rx(r"\bo\.?t\.?p\.?\b[^.?!]{0,40}\b(?:was|is)\b[^.?!]{0,15}\bnever\s+(?:generated|created|issued)\b"),
-                _rx(r"\bno\s+o\.?t\.?p\.?\b[^.?!]{0,25}\b(?:was\s+)?(?:generated|created|issued)\b"),
+                _rx(
+                    r"\bo\.?t\.?p\.?\b[^.?!]{0,40}\b(?:was|is)\b[^.?!]{0,15}\bnever\s+(?:generated|created|issued)\b"
+                ),
+                _rx(
+                    r"\bno\s+o\.?t\.?p\.?\b[^.?!]{0,25}\b(?:was\s+)?(?:generated|created|issued)\b"
+                ),
                 _rx(r"\bfail(?:ed|ure)\b[^.?!]{0,25}\bgenerate\b[^.?!]{0,20}\bo\.?t\.?p\.?\b"),
             ],
             negation_cues=_NEGATION_CUES,
@@ -328,8 +349,12 @@ def build_otp_hypotheses() -> list[Hypothesis]:
             branch="otp_delivery",
             assertion_patterns=[
                 _rx(r"\bdelivery\b[^.?!]{0,30}\bfail(?:ed|ure|ing)\b"),
-                _rx(r"\bo\.?t\.?p\.?\b[^.?!]{0,50}\b(?:not|never|wasn'?t|didn'?t)\b[^.?!]{0,20}\bdeliver"),
-                _rx(r"\bsms\b[^.?!]{0,30}\b(?:fail(?:ed|ure)|not delivered|never (?:arrived|reached))\b"),
+                _rx(
+                    r"\bo\.?t\.?p\.?\b[^.?!]{0,50}\b(?:not|never|wasn'?t|didn'?t)\b[^.?!]{0,20}\bdeliver"
+                ),
+                _rx(
+                    r"\bsms\b[^.?!]{0,30}\b(?:fail(?:ed|ure)|not delivered|never (?:arrived|reached))\b"
+                ),
             ],
             # Delivery failure is asserted with negative words by nature ("the SMS was
             # never delivered"), so the generic negation cues would misfire. Only an
@@ -344,8 +369,12 @@ def build_otp_hypotheses() -> list[Hypothesis]:
             label="The SMS provider is having an outage affecting delivery",
             branch="otp_delivery",
             assertion_patterns=[
-                _rx(r"\b(?:sms|messaging)\s+(?:provider|gateway|service)\b[^.?!]{0,40}\b(?:outage|incident|degraded|down|failing|problem)\b"),
-                _rx(r"\b(?:outage|incident)\b[^.?!]{0,30}\b(?:sms|messaging)\s+(?:provider|gateway|service)\b"),
+                _rx(
+                    r"\b(?:sms|messaging)\s+(?:provider|gateway|service)\b[^.?!]{0,40}\b(?:outage|incident|degraded|down|failing|problem)\b"
+                ),
+                _rx(
+                    r"\b(?:outage|incident)\b[^.?!]{0,30}\b(?:sms|messaging)\s+(?:provider|gateway|service)\b"
+                ),
             ],
             negation_cues=_NEGATION_CUES,
         ),

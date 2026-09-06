@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import ClassVar
 
 from ..observability.events import EventType
 from .state import ResolutionState
@@ -65,27 +66,49 @@ class LoopAssessment:
         }
 
 
-#: Normalisation for comparing two diagnoses. Rewording is still repeating.
-_FILLER = re.compile(
-    r"(?i)\b(?:so|well|okay|ok|right|just|really|actually|basically|i see|it (?:seems|looks|appears)"
-    r"|let me|i'?ll|i am|i'?m|going to|gonna|please|sorry|apolog\w+|sir|madam|thanks?|thank you)\b"
-)
 _NON_WORD = re.compile(r"[^a-z0-9 ]+")
 _SPACES = re.compile(r"\s+")
+
+#: Words that carry no diagnostic content. Stripping them is what makes rewording
+#: detectable as repetition: an agent that says "your card might be blocked" and then
+#: "I think the card is blocked" has said the same thing twice, and the hedging is
+#: exactly the part that differs.
+_STOPWORDS: frozenset[str] = frozenset(
+    # determiners and pronouns
+    "a an the this that these those it its there here"
+    " i you your yours my mine our ours we us me they them their"
+    # copulas and auxiliaries
+    " is are was were be been being am do does did doing have has had"
+    " will would shall should can could may might must going gonna"
+    # hedges - the part that differs when an agent reworks the same claim
+    " seem seems seemed look looks looked appear appears appeared"
+    " think thinks thought believe believes guess suppose"
+    " so well okay ok right just really actually basically simply"
+    # discourse glue and politeness
+    " like about into from with for and but or then than"
+    " let please sorry apologies apologise apologize"
+    " sir madam thanks thank very quite some any"
+    " see say saying said tell telling told".split()
+)
 
 
 def normalise_diagnosis(text: str) -> str:
     """Reduce a spoken diagnosis to a comparable core.
 
     "So it looks like your card might be blocked" and "I think the card is blocked"
-    normalise to the same string, which is what makes "repeated twice" detectable
-    rather than defeated by paraphrase.
+    both reduce to ``"blocked card"``, which is what makes "repeated twice"
+    detectable rather than defeated by paraphrase.
+
+    Tokens are sorted and deduplicated, so word order does not matter either — an
+    agent that reorders a clause has still repeated itself.
     """
-    lowered = text.lower()
-    lowered = _FILLER.sub(" ", lowered)
-    lowered = _NON_WORD.sub(" ", lowered)
-    tokens = [t for t in _SPACES.sub(" ", lowered).strip().split(" ") if len(t) > 2]
-    return " ".join(sorted(set(tokens)))
+    lowered = _NON_WORD.sub(" ", text.lower())
+    tokens = {
+        token
+        for token in _SPACES.sub(" ", lowered).strip().split(" ")
+        if len(token) > 2 and token not in _STOPWORDS
+    }
+    return " ".join(sorted(tokens))
 
 
 class LoopDetector:
@@ -98,7 +121,7 @@ class LoopDetector:
     #: Score at which the engine must change strategy or escalate.
     TRIGGER_SCORE = 3
 
-    _WEIGHTS: dict[LoopSignal, int] = {
+    _WEIGHTS: ClassVar[dict[LoopSignal, int]] = {
         LoopSignal.REJECTED_HYPOTHESIS_REPROPOSED: 5,
         LoopSignal.DIAGNOSIS_REPEATED_WITHOUT_EVIDENCE: 3,
         LoopSignal.ACTION_REPEATED_WITHOUT_EVIDENCE: 2,
@@ -117,7 +140,9 @@ class LoopDetector:
 
     # -- recording -----------------------------------------------------------
 
-    def record_spoken_diagnosis(self, text: str, *, hypothesis_ids: list[str] | None = None) -> None:
+    def record_spoken_diagnosis(
+        self, text: str, *, hypothesis_ids: list[str] | None = None
+    ) -> None:
         """Record a diagnosis the caller actually heard.
 
         Called from the speech-completion path. A generated-but-never-played turn is
@@ -176,9 +201,11 @@ class LoopDetector:
 
         # A hypothesis suggested more than MAX_SUGGESTIONS times is a loop even if
         # each individual repetition looked justified at the time.
-        if any(h.times_suggested_to_user > self.MAX_SUGGESTIONS for h in state.hypotheses.values()):
-            if LoopSignal.DIAGNOSIS_REPEATED_WITHOUT_EVIDENCE not in signals:
-                signals.append(LoopSignal.DIAGNOSIS_REPEATED_WITHOUT_EVIDENCE)
+        over_suggested = any(
+            h.times_suggested_to_user > self.MAX_SUGGESTIONS for h in state.hypotheses.values()
+        )
+        if over_suggested and LoopSignal.DIAGNOSIS_REPEATED_WITHOUT_EVIDENCE not in signals:
+            signals.append(LoopSignal.DIAGNOSIS_REPEATED_WITHOUT_EVIDENCE)
 
         score = sum(self._WEIGHTS[s] for s in signals)
         triggered = score >= self.TRIGGER_SCORE
@@ -222,21 +249,37 @@ class LoopDetector:
 
         ``None`` means every branch is spent, which is the honest trigger for
         escalation rather than another lap of the same questions.
+
+        Candidates are ranked: evidence-supported hypotheses first (that is where the
+        answer most likely is), then untried ones in the order they are declared,
+        which is the natural diagnostic order for the scenario. Ordering is fully
+        deterministic so the acceptance tests are not at the mercy of dict iteration.
         """
         state = self._state
-        exhausted = {h.branch for h in state.rejected_hypotheses}
-        for hypothesis in state.hypotheses.values():
-            if hypothesis.is_rejected:
-                continue
-            if hypothesis.times_suggested_to_user > self.MAX_SUGGESTIONS:
-                continue
-            if hypothesis.branch in exhausted and hypothesis.status.value == "ACTIVE":
-                # The branch has a rejection in it, but this specific hypothesis is
-                # still open — only skip if we have already leaned on it.
-                if hypothesis.times_suggested_to_user > 0:
-                    continue
-            return hypothesis.branch
-        return None
+
+        def rank(hypothesis) -> tuple[int, float, int]:
+            supported = hypothesis.status.value == "SUPPORTED"
+            return (
+                0 if supported else 1,
+                -hypothesis.confidence,
+                hypothesis.times_suggested_to_user,
+            )
+
+        declaration_order = list(state.hypotheses.values())
+        candidates = [
+            h
+            for h in declaration_order
+            if not h.is_rejected and h.times_suggested_to_user <= self.MAX_SUGGESTIONS
+        ]
+        if not candidates:
+            return None
+
+        # Prefer a branch we have not already leaned on. A branch that only contains
+        # hypotheses we have already put to the caller is not a change of strategy.
+        untouched = [h for h in candidates if h.times_suggested_to_user == 0]
+        pool = untouched or candidates
+        pool.sort(key=lambda h: (rank(h), declaration_order.index(h)))
+        return pool[0].branch
 
     # -- internals -----------------------------------------------------------
 

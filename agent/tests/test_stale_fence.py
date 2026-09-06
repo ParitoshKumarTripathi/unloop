@@ -105,6 +105,7 @@ async def test_stale_result_cannot_resurrect_the_rejected_hypothesis():
     apply_correction(state)
     result, _ = await task
 
+    assert result.state_version == version_at_issue
     card_blocked = state.get_hypothesis("CARD_BLOCKED")
 
     # Evidence stamped with the version the tool was ISSUED under - i.e. from before
@@ -156,6 +157,7 @@ async def test_unrelated_subject_survives_a_correction():
 async def test_fresh_result_is_fresh():
     state, backend = make_state("otp_normal")
     result, decision = await backend.get_card_status("demo_customer_001")
+    assert result.state_version == state.state_version
     assert decision.verdict is FenceVerdict.FRESH
     assert result.stale is False
     assert decision.may_speak is True

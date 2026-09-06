@@ -81,9 +81,7 @@ class OutputGuard:
         :class:`~unloop.resolution.stale_fence.SpeechTicket` at generation time,
         before the guard runs at speak time.
         """
-        asserted = tuple(
-            h.id for h in self._state.hypotheses.values() if h.asserted_in(text)
-        )
+        asserted = tuple(h.id for h in self._state.hypotheses.values() if h.asserted_in(text))
         subjects: set[Subject] = set()
         for hypothesis_id in asserted:
             subjects |= _HYPOTHESIS_SUBJECTS.get(hypothesis_id, frozenset())
@@ -104,9 +102,7 @@ class OutputGuard:
         )
         if rejected:
             violations.append("REJECTED_HYPOTHESIS")
-            labels = [
-                state.hypotheses[hid].label for hid in rejected if hid in state.hypotheses
-            ]
+            labels = [state.hypotheses[hid].label for hid in rejected if hid in state.hypotheses]
             hints.append(
                 "Do not state "
                 + "; ".join(labels)
@@ -127,7 +123,9 @@ class OutputGuard:
             hints.append("Write plain spoken prose. No lists, headings, or markup.")
 
         # --- 4. leaking internal machinery ----------------------------------
-        if re.search(r"(?i)\b(hypothes[ie]s|confidence score|state[_ ]version|tool call|payload)\b", text):
+        if re.search(
+            r"(?i)\b(hypothes[ie]s|confidence score|state[_ ]version|tool call|payload)\b", text
+        ):
             violations.append("INTERNAL_LEAK")
             hints.append("Do not mention internal state, tools, or confidence values.")
 

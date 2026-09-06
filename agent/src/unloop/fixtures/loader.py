@@ -32,9 +32,7 @@ def _fixtures_dir() -> Path:
         candidate = parent / "fixtures"
         if candidate.is_dir() and any(candidate.glob("otp_*.json")):
             return candidate
-    raise FileNotFoundError(
-        "could not locate the fixtures/ directory containing otp_*.json"
-    )
+    raise FileNotFoundError("could not locate the fixtures/ directory containing otp_*.json")
 
 
 @dataclass

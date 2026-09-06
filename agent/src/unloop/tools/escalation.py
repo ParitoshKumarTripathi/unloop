@@ -99,8 +99,7 @@ def recommend_destination(state: ResolutionState) -> str:
 def build_handoff_packet(state: ResolutionState) -> HandoffPacket:
     """Serialise the resolution state into a human-usable packet."""
     confirmed = [
-        {"key": f.key, "value": f.value, "source": f.source.value}
-        for f in state.confirmed_facts
+        {"key": f.key, "value": f.value, "source": f.source.value} for f in state.confirmed_facts
     ]
 
     rejected = [

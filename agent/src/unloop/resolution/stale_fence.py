@@ -127,8 +127,7 @@ class StaleFence:
                 decision = FenceDecision(
                     verdict=FenceVerdict.SUPERSEDED,
                     reason=(
-                        f"a correction after v{origin} invalidated subject "
-                        f"{result.subject.value!r}"
+                        f"a correction after v{origin} invalidated subject {result.subject.value!r}"
                     ),
                     originating_version=origin,
                     current_version=current,
@@ -234,7 +233,9 @@ class StaleFence:
         # Rule 3 — otherwise allow. A turn that merely drifted in version but whose
         # content nothing contradicted is still correct, and blocking it would make
         # the agent needlessly mute after every correction.
-        return SpeechDecision(allowed=True, reason="no rejected assertion, no invalidated dependency")
+        return SpeechDecision(
+            allowed=True, reason="no rejected assertion, no invalidated dependency"
+        )
 
     # -- helpers -------------------------------------------------------------
 

@@ -1,0 +1,43 @@
+{
+  "catalog_url": "https://users.rime.ai/data/voices/all-v2.json",
+  "checked": {
+    "model": "coda",
+    "speaker": "eyre",
+    "lang": "eng"
+  },
+  "verified": true,
+  "problems": [],
+  "voice_record": {
+    "speaker": "eyre",
+    "gender": "Female",
+    "age": "Adult",
+    "country": "US",
+    "dialect": "",
+    "demographic": "",
+    "genre": [],
+    "modelId": "coda",
+    "lang": "eng",
+    "language": "English",
+    "description": "A warm, friendly American voice, calm and easy to listen to.",
+    "styles": [
+      "more professional",
+      "formal",
+      "casual",
+      "energetic"
+    ],
+    "flagship": true
+  },
+  "models_in_catalog": [
+    "arcana",
+    "coda",
+    "mist",
+    "mistv2",
+    "mistv3"
+  ],
+  "plugin_accepted_models": [
+    "coda",
+    "mistv3",
+    "mistv2"
+  ],
+  "voice_count_for_model_lang": 162
+}

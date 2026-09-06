@@ -108,11 +108,15 @@ _DENIALS: tuple[tuple[str, re.Pattern[str], frozenset[Subject]], ...] = (
 # --- corroborating evidence the caller volunteers --------------------------
 _EVIDENCE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
-        _rx(r"\b(?:used|use[d]?\s+it|paid|swiped|tapped|bought)\b[^.?!]{0,40}\b(?:ago|earlier|today|yesterday|this morning|just now|minutes?|hours?)\b"),
+        _rx(
+            r"\b(?:used|use[d]?\s+it|paid|swiped|tapped|bought)\b[^.?!]{0,40}\b(?:ago|earlier|today|yesterday|this morning|just now|minutes?|hours?)\b"
+        ),
         "caller reports recent successful card use",
     ),
     (
-        _rx(r"\b(?:worked|working)\b[^.?!]{0,30}\b(?:earlier|before|yesterday|this morning|fine)\b"),
+        _rx(
+            r"\b(?:worked|working)\b[^.?!]{0,30}\b(?:earlier|before|yesterday|this morning|fine)\b"
+        ),
         "caller reports the card worked recently",
     ),
     (
@@ -127,7 +131,10 @@ _EVIDENCE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # --- explicit redirects -----------------------------------------------------
 _REDIRECTS: tuple[tuple[re.Pattern[str], Subject], ...] = (
-    (_rx(r"\bcheck\b[^.?!]{0,25}\b(?:o\.?t\.?p\.?|sms|message|text)\b[^.?!]{0,20}\bdeliver"), Subject.OTP_DELIVERY),
+    (
+        _rx(r"\bcheck\b[^.?!]{0,25}\b(?:o\.?t\.?p\.?|sms|message|text)\b[^.?!]{0,20}\bdeliver"),
+        Subject.OTP_DELIVERY,
+    ),
     (_rx(r"\b(?:o\.?t\.?p\.?|sms|message)\s+deliver\w*\b"), Subject.OTP_DELIVERY),
     (_rx(r"\bcheck\b[^.?!]{0,20}\b(?:my\s+)?(?:mobile|phone)\s+number\b"), Subject.MOBILE),
     (_rx(r"\bcheck\b[^.?!]{0,25}\bonline\s+(?:payments?|transactions?)\b"), Subject.ONLINE_TXN),
@@ -249,7 +256,7 @@ class CorrectionExtractor:
         """
         for record in sorted(
             state.speech_records.values(),
-            key=lambda r: (r.started_at or 0.0),
+            key=lambda r: r.started_at or 0.0,
             reverse=True,
         ):
             if not record.was_heard:

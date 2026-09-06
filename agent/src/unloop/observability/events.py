@@ -15,6 +15,7 @@ Rules that hold everywhere in this module:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import threading
@@ -192,10 +193,10 @@ class EventRecorder:
             subscribers = list(self._subscribers)
 
         for subscriber in subscribers:
-            try:
+            # A failing subscriber must never break the call. Observability is
+            # secondary to the conversation; the event is already safely stored.
+            with contextlib.suppress(Exception):
                 subscriber(event)
-            except Exception:  # noqa: BLE001 - observability must not break the call
-                pass
         return event
 
     def subscribe(self, callback: Callable[[Event], None]) -> Callable[[], None]:

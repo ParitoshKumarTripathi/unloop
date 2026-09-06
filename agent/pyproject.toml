@@ -48,6 +48,12 @@ target-version = "py310"
 select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# The stopword list is written as grouped strings with a comment per group
+# explaining why that group is stripped. A flat list literal would satisfy SIM905
+# and lose the explanation, which is the more valuable half.
+"src/unloop/resolution/loop_detector.py" = ["SIM905"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

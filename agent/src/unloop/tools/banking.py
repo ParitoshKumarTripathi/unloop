@@ -106,7 +106,7 @@ class SupportBackend:
                 if asyncio.iscoroutine(payload):
                     payload = await payload
                 result = pending.to_result(payload=dict(payload))
-            except Exception as exc:  # noqa: BLE001 - surfaced to the caller as uncertainty
+            except Exception as exc:
                 result = pending.to_result(status=ToolStatus.ERROR, error=str(exc))
 
         decision = self.fence.evaluate_tool(result)
@@ -124,14 +124,14 @@ class SupportBackend:
                 "customer_id": customer_id,
                 "card_last4": self.fixture.card_last4,
                 "card_status": backend.get("card_status", "ACTIVE"),
-                "last_successful_use_hours_ago": backend.get(
-                    "last_successful_card_use_hours_ago"
-                ),
+                "last_successful_use_hours_ago": backend.get("last_successful_card_use_hours_ago"),
             }
 
         return await self.call("get_card_status", handler)
 
-    async def get_online_transaction_status(self, customer_id: str) -> tuple[ToolResult, FenceDecision]:
+    async def get_online_transaction_status(
+        self, customer_id: str
+    ) -> tuple[ToolResult, FenceDecision]:
         """Whether online/e-commerce use is switched on for the card."""
 
         def handler() -> dict[str, Any]:
@@ -144,7 +144,9 @@ class SupportBackend:
 
         return await self.call("get_online_transaction_status", handler)
 
-    async def get_registered_mobile_status(self, customer_id: str) -> tuple[ToolResult, FenceDecision]:
+    async def get_registered_mobile_status(
+        self, customer_id: str
+    ) -> tuple[ToolResult, FenceDecision]:
         """Whether the mobile number on file is verified.
 
         Returns only the verification *status*. The number itself is never fetched,
@@ -195,7 +197,11 @@ class SupportBackend:
             incidents = self.fixture.backend_state.get("service_incidents", {})
             entry = incidents.get(service)
             if entry is None:
-                return {"service": service, "status": "UNKNOWN", "summary": "No data for that service"}
+                return {
+                    "service": service,
+                    "status": "UNKNOWN",
+                    "summary": "No data for that service",
+                }
             return {"service": service, **entry}
 
         return await self.call("get_service_incidents", handler)

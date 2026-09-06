@@ -95,9 +95,7 @@ def test_guard_blocks_the_contradicted_diagnosis_but_allows_the_denial():
 
 def test_guard_reports_dependencies_for_the_speech_fence():
     state = make_state()
-    asserted, depends_on = OutputGuard(state).analyse(
-        "It looks like your card is blocked."
-    )
+    asserted, depends_on = OutputGuard(state).analyse("It looks like your card is blocked.")
     assert asserted == ("CARD_BLOCKED",)
     assert depends_on == frozenset({Subject.CARD})
 
@@ -148,9 +146,7 @@ def test_markdown_never_reaches_tts(text: str):
 
 
 def test_internal_machinery_is_not_spoken():
-    result = OutputGuard(make_state()).check(
-        "My current hypothesis has a confidence score of 0.8."
-    )
+    result = OutputGuard(make_state()).check("My current hypothesis has a confidence score of 0.8.")
     assert result.allowed is False
     assert "INTERNAL_LEAK" in result.violations
 
