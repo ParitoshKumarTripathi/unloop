@@ -86,8 +86,24 @@ echo "[2/6] Rime configuration"
 # ---------------------------------------------------------------------------
 CONFIG_OUT="$("$PY" - <<'PY' 2>&1
 import sys
+from pathlib import Path
+
 sys.path.insert(0, "agent/src")
+
+# Load agent/.env.local the same way the agent does, so this reports the config the
+# agent will actually run with. Without it, preflight warns about credentials that
+# are sitting in the file right next to it.
+try:
+    from dotenv import load_dotenv
+
+    env_file = Path("agent/.env.local")
+    if env_file.is_file():
+        load_dotenv(env_file, override=False)
+except ImportError:
+    pass
+
 from unloop.config import AppConfig
+
 c = AppConfig.from_env()
 problems = c.rime.validate()
 print("MODEL", c.rime.model)

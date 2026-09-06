@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "unloop-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "pnpm@9.15.9", "--dir", "apps/web", "dev"],
+      "port": 3000
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# Normalise line endings in the repository.
+#
+# Without this, a Windows checkout gives every file CRLF, and the frontend's Prettier
+# check (which the Next build runs as part of lint) fails on files nobody touched.
+# Text is stored LF and checked out LF everywhere.
+* text=auto eol=lf
+
+# Binary: never touch these.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.otf binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.riv binary
+
+# Generated evidence — keep it out of diffs, but keep it in the repo.
+artifacts/events/*.jsonl -diff
+apps/web/pnpm-lock.yaml -diff linguist-generated
+agent/uv.lock -diff linguist-generated

@@ -13,9 +13,9 @@
   "segment": "bySentence",
   "livekit_plugin_version": "1.8.0",
   "livekit_agents_version": "1.8.0",
-  "api_key_present": false,
+  "api_key_present": true,
   "verified_against_live_catalog": null,
   "config_problems": [],
-  "git_commit": "4e42ffb29d3b56a83059463cdf80a2b5016828b0",
-  "timestamp": "2026-09-06T17:26:44Z"
+  "git_commit": "1a9fe61bcf06901e524f978a829a06849844de8e",
+  "timestamp": "2026-09-06T17:40:41Z"
 }
