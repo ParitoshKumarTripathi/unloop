@@ -147,10 +147,13 @@ export interface HandoffPacket {
 }
 
 export interface FixtureInfo {
+  domain: string;
   fixture_id: string;
   label: string;
+  primary_delay_tool: string;
   tool_delays_ms: Record<string, number>;
-  available: Array<{ fixture_id: string; label: string; description: string }>;
+  available: Array<{ fixture_id: string; domain: string; label: string; description: string }>;
+  domains: Array<{ id: string; label: string; issue: string; fixture_id: string }>;
 }
 
 export interface UnloopPayload {

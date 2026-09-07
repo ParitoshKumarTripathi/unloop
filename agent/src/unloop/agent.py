@@ -25,7 +25,6 @@ import asyncio
 import json
 import logging
 import time
-import uuid
 from collections.abc import AsyncGenerator, AsyncIterable
 from typing import Any
 
@@ -54,16 +53,16 @@ from livekit.agents.voice.events import (
 from livekit.plugins import rime
 
 from .config import AppConfig, load_dotenv_if_present, write_rime_config_artifact
+from .domains import available_domains, get_domain
+from .domains.base import DomainAdapter
 from .fixtures.loader import LatencyTable, available_fixtures, load_fixture
 from .observability.events import EventType
-from .prompts import OPENING_LINE, branch_phrase, build_instructions, correction_acknowledgement
+from .prompts import branch_phrase, build_instructions, correction_acknowledgement
 from .resolution.corrections import CorrectionExtractor, CorrectionReconciler
-from .resolution.hypotheses import Evidence, EvidenceSource, build_otp_hypotheses
 from .resolution.loop_detector import LoopDetector
 from .resolution.output_guard import OutputGuard
 from .resolution.stale_fence import SpeechTicket, StaleFence
 from .resolution.state import EscalationStatus, ResolutionState, SpeechRecord
-from .tools.banking import SupportBackend
 from .tools.escalation import build_handoff_packet, mark_escalated
 
 logger = logging.getLogger("unloop")
@@ -81,7 +80,17 @@ class UnloopAgent(Agent):
 
     def __init__(self, engine: ResolutionEngine) -> None:
         self.engine = engine
-        super().__init__(instructions=build_instructions(engine.state))
+        super().__init__(
+            instructions=build_instructions(
+                engine.state, system_prompt=engine.adapter.instructions()
+            )
+        )
+        # Decorated methods are discovered automatically by LiveKit. Keep the
+        # proven explicit schemas, but expose only this adapter's operations to the
+        # model so a hotel call cannot drift into restaurant or shopping behavior.
+        allowed = {tool.exposed_name for tool in engine.adapter.tools} | {"escalate_to_human"}
+        self._tools = [tool for tool in self._tools if tool.info.name in allowed]
+        self._chat_ctx = self._chat_ctx.copy(tools=self._tools)
 
     # -- speech gate ---------------------------------------------------------
 
@@ -189,6 +198,66 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("get_service_incidents", service=service)
 
     @function_tool
+    async def check_refund_record(self, context: RunContext) -> str:
+        """Check the merchant's record for an existing refund support case."""
+        return await self.engine.run_tool("check_refund_record")
+
+    @function_tool
+    async def trace_refund_payment(self, context: RunContext) -> str:
+        """Trace a processed refund through the payment rail."""
+        return await self.engine.run_tool("trace_refund_payment")
+
+    @function_tool
+    async def reissue_refund(self, context: RunContext) -> str:
+        """Reissue a refund only when investigation confirms it is stalled."""
+        return await self.engine.run_tool("reissue_refund")
+
+    @function_tool
+    async def check_platform_reservation(self, context: RunContext) -> str:
+        """Check the existing restaurant reservation confirmation."""
+        return await self.engine.run_tool("check_platform_reservation")
+
+    @function_tool
+    async def check_restaurant_record(self, context: RunContext) -> str:
+        """Check whether the restaurant received the confirmed reservation."""
+        return await self.engine.run_tool("check_restaurant_record")
+
+    @function_tool
+    async def rebook_reservation(self, context: RunContext) -> str:
+        """Create a corrective replacement for the affected reservation."""
+        return await self.engine.run_tool("rebook_reservation")
+
+    @function_tool
+    async def check_appointment_record(self, context: RunContext) -> str:
+        """Check the current record for the affected salon appointment."""
+        return await self.engine.run_tool("check_appointment_record")
+
+    @function_tool
+    async def check_appointment_history(self, context: RunContext) -> str:
+        """Audit changes or cancellation of the affected appointment."""
+        return await self.engine.run_tool("check_appointment_history")
+
+    @function_tool
+    async def reschedule_appointment(self, context: RunContext) -> str:
+        """Correctively reschedule the affected appointment."""
+        return await self.engine.run_tool("reschedule_appointment")
+
+    @function_tool
+    async def check_platform_booking(self, context: RunContext) -> str:
+        """Check the existing hotel booking confirmation."""
+        return await self.engine.run_tool("check_platform_booking")
+
+    @function_tool
+    async def check_hotel_record(self, context: RunContext) -> str:
+        """Check whether the hotel property system contains the booking."""
+        return await self.engine.run_tool("check_hotel_record")
+
+    @function_tool
+    async def reconcile_hotel_booking(self, context: RunContext) -> str:
+        """Push a corrective reconciliation for the affected hotel booking."""
+        return await self.engine.run_tool("reconcile_hotel_booking")
+
+    @function_tool
     async def escalate_to_human(self, context: RunContext, reason: str) -> str:
         """Hand the case to a human team with the full diagnostic context.
 
@@ -223,21 +292,41 @@ class _GateVerdict:
 class ResolutionEngine:
     """Binds the deterministic resolution state to a live LiveKit session."""
 
-    def __init__(self, config: AppConfig, fixture_id: str | None = None) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        fixture_id: str | None = None,
+        *,
+        domain_id: str | None = None,
+    ) -> None:
         self.config = config
-        self.fixture = load_fixture(fixture_id or config.default_fixture)
+        requested_adapter = get_domain(domain_id)
+        selected_fixture = fixture_id or (
+            requested_adapter.default_fixture if domain_id else config.default_fixture
+        )
+        self.fixture = load_fixture(selected_fixture)
+        self.adapter: DomainAdapter = get_domain(domain_id or self.fixture.domain)
         self.state = ResolutionState(
-            issue_type="OTP_NOT_RECEIVED",
-            issue_summary="Debit card payment one-time password is not being received",
-            hypotheses=build_otp_hypotheses(),
+            issue_type=self.adapter.issue_type,
+            issue_summary=self.adapter.issue_summary,
+            hypotheses=self.adapter.build_hypotheses(),
         )
         self.latency = LatencyTable(self.fixture.tool_delays_ms)
-        self.backend = SupportBackend(self.fixture, self.state, latency=self.latency)
+        self.backend = self.adapter.create_backend(self.fixture, self.state, self.latency)
         self.fence = StaleFence(self.state)
-        self.guard = OutputGuard(self.state)
+        self.guard = OutputGuard(
+            self.state,
+            hypothesis_subjects=self.adapter.hypothesis_subjects,
+            remediation_actions=self.adapter.remediation_actions,
+        )
         self.loop_detector = LoopDetector(self.state)
-        self.extractor = CorrectionExtractor()
-        self.reconciler = CorrectionReconciler(self.state)
+        self.extractor = CorrectionExtractor(
+            denials=self.adapter.denial_rules,
+            evidence_patterns=self.adapter.evidence_patterns,
+            redirects=self.adapter.redirects,
+            hypothesis_subjects=self.adapter.hypothesis_subjects,
+        )
+        self.reconciler = CorrectionReconciler(self.state, conflict_resolver=self.adapter.conflict)
 
         self.session: AgentSession | None = None
         self.agent: UnloopAgent | None = None
@@ -284,27 +373,16 @@ class ResolutionEngine:
         a model that ignores the instruction cannot quote a superseded fact as
         current — the fence has already relabelled it.
         """
-        customer_id = self.fixture.customer_id
-        method = {
-            "get_card_status": lambda: self.backend.get_card_status(customer_id),
-            "get_online_transaction_status": lambda: self.backend.get_online_transaction_status(
-                customer_id
-            ),
-            "get_registered_mobile_status": lambda: self.backend.get_registered_mobile_status(
-                customer_id
-            ),
-            "get_otp_generation_status": lambda: self.backend.get_otp_generation_status(
-                customer_id
-            ),
-            "get_otp_delivery_status": lambda: self.backend.get_otp_delivery_status(customer_id),
-            "get_service_incidents": lambda: self.backend.get_service_incidents(
-                kwargs.get("service", "sms_provider")
-            ),
-        }.get(tool_name)
-        if method is None:
-            return f"No such check: {tool_name}."
+        definitions = {tool.name: tool for tool in self.adapter.tools}
+        definition = definitions.get(tool_name)
+        if definition is None:
+            return f"That operation is not available for this {self.adapter.label.lower()} support case."
+        if definition.corrective_action and definition.requires_hypothesis:
+            hypothesis = self.state.get_hypothesis(definition.requires_hypothesis)
+            if hypothesis is None or hypothesis.status.value != "SUPPORTED":
+                return "That corrective action is premature. Complete the relevant support checks first."
 
-        result, decision = await method()
+        result, decision = await self.adapter.invoke(self.backend, tool_name, **kwargs)
         await self.publish_state()
 
         if not result.succeeded:
@@ -324,110 +402,13 @@ class ResolutionEngine:
                 f"Continue with the customer's current question instead."
             )
 
-        self._absorb(result.tool_name, result.payload)
+        self._absorb(result)
         await self.publish_state()
-        return _describe_payload(result.tool_name, result.payload)
+        return self.adapter.describe(result)
 
-    def _absorb(self, tool_name: str, payload: dict[str, Any]) -> None:
-        """Turn a usable tool payload into facts and hypothesis evidence."""
-        state = self.state
-        version = state.state_version
-
-        def evidence(key: str, summary: str, supports: bool) -> Evidence:
-            return Evidence(
-                id=f"ev_{key}_{version}_{uuid.uuid4().hex[:6]}",
-                source=EvidenceSource.TOOL,
-                summary=summary,
-                observed_at_version=version,
-                supports=supports,
-                detail=dict(payload),
-            )
-
-        if tool_name == "get_card_status":
-            status = str(payload.get("card_status", "")).upper()
-            state.confirm_fact("card_status", status)
-            if status == "ACTIVE":
-                state.reject_hypothesis(
-                    "CARD_BLOCKED", evidence("card", "backend reports the card is active", False)
-                )
-            elif status:
-                state.support_hypothesis(
-                    "CARD_BLOCKED", evidence("card", f"backend reports card status {status}", True)
-                )
-
-        elif tool_name == "get_online_transaction_status":
-            status = str(payload.get("online_transactions", "")).upper()
-            state.confirm_fact("online_transactions", status)
-            if status == "ENABLED":
-                state.reject_hypothesis(
-                    "ONLINE_TXN_DISABLED",
-                    evidence("online", "backend reports online transactions are enabled", False),
-                )
-            elif status:
-                state.support_hypothesis(
-                    "ONLINE_TXN_DISABLED",
-                    evidence("online", f"online transactions are {status.lower()}", True),
-                )
-
-        elif tool_name == "get_registered_mobile_status":
-            status = str(payload.get("registered_mobile_status", "")).upper()
-            state.confirm_fact("registered_mobile_status", status)
-            if status == "VERIFIED":
-                state.reject_hypothesis(
-                    "MOBILE_NOT_REGISTERED",
-                    evidence("mobile", "backend reports the registered number is verified", False),
-                )
-            elif status:
-                state.support_hypothesis(
-                    "MOBILE_NOT_REGISTERED",
-                    evidence("mobile", f"registered number status is {status.lower()}", True),
-                )
-
-        elif tool_name == "get_otp_generation_status":
-            status = str(payload.get("otp_generation_status", "")).upper()
-            state.confirm_fact("otp_generation_status", status)
-            if status == "SUCCESS":
-                state.reject_hypothesis(
-                    "OTP_NOT_GENERATED",
-                    evidence(
-                        "otpgen", "backend reports the one-time password was generated", False
-                    ),
-                )
-            elif status:
-                state.support_hypothesis(
-                    "OTP_NOT_GENERATED",
-                    evidence("otpgen", f"one-time password generation is {status.lower()}", True),
-                )
-
-        elif tool_name == "get_otp_delivery_status":
-            status = str(payload.get("otp_delivery_status", "")).upper()
-            reason = str(payload.get("otp_delivery_failure_reason") or "")
-            state.confirm_fact("otp_delivery_status", status, detail={"reason": reason})
-            if status == "FAILED":
-                state.support_hypothesis(
-                    "OTP_DELIVERY_FAILED",
-                    evidence(
-                        "otpdel",
-                        f"delivery failed{f', reason {reason.lower()}' if reason else ''}",
-                        True,
-                    ),
-                )
-                state.set_strategy("investigate_otp_delivery", reason="delivery failure confirmed")
-            elif status:
-                state.reject_hypothesis(
-                    "OTP_DELIVERY_FAILED",
-                    evidence("otpdel", f"delivery status is {status.lower()}", False),
-                )
-
-        elif tool_name == "get_service_incidents":
-            status = str(payload.get("status", "")).upper()
-            service = str(payload.get("service", ""))
-            state.confirm_fact(f"incident_{service}", status, detail=dict(payload))
-            if service == "sms_provider" and status in ("DEGRADED", "OUTAGE", "DOWN"):
-                state.support_hypothesis(
-                    "SMS_PROVIDER_INCIDENT",
-                    evidence("incident", f"the message provider is {status.lower()}", True),
-                )
+    def _absorb(self, result: Any) -> None:
+        """Delegate domain interpretation while keeping state transitions shared."""
+        self.adapter.absorb(self.state, result)
 
     # -- speech gating -------------------------------------------------------
 
@@ -481,7 +462,7 @@ class ResolutionEngine:
             if h in self.state.hypotheses and self.state.hypotheses[h].is_rejected
         ]
         label = rejected[0] if rejected else "that"
-        next_step = branch_phrase(self.loop_detector.next_branch())
+        next_step = branch_phrase(self.loop_detector.next_branch(), self.adapter.branch_phrases)
         return " " + correction_acknowledgement(label, next_step)
 
     # -- transcript ----------------------------------------------------------
@@ -515,14 +496,18 @@ class ResolutionEngine:
                 state.set_strategy(f"investigate_{branch}", reason="loop detected")
 
         if self.agent is not None:
-            await self.agent.update_instructions(build_instructions(state))
+            await self.agent.update_instructions(
+                build_instructions(state, system_prompt=self.adapter.instructions())
+            )
         await self.publish_state()
 
     # -- escalation ----------------------------------------------------------
 
     async def escalate(self, reason: str) -> str:
         state = self.state
-        packet = build_handoff_packet(state)
+        packet = build_handoff_packet(
+            state, destination_resolver=self.adapter.recommend_destination
+        )
 
         case_result, _ = await self.backend.create_support_case(
             self.fixture.customer_id,
@@ -552,13 +537,18 @@ class ResolutionEngine:
             "state": self.state.snapshot(),
             "speech": self.speech_provider_info(),
             "fixture": {
+                "domain": self.adapter.domain_id,
                 "fixture_id": self.fixture.fixture_id,
                 "label": self.fixture.label,
+                "primary_delay_tool": self.adapter.primary_delay_tool,
                 "tool_delays_ms": self.latency.snapshot(),
-                "available": available_fixtures(),
+                "available": available_fixtures(self.adapter.domain_id),
+                "domains": available_domains(),
             },
             "loop": {"score": self.state.loop_score, "strategy": self.state.current_strategy},
-            "handoff": build_handoff_packet(self.state).to_dict(),
+            "handoff": build_handoff_packet(
+                self.state, destination_resolver=self.adapter.recommend_destination
+            ).to_dict(),
         }
         try:
             await self.room.local_participant.publish_data(
@@ -600,7 +590,7 @@ class ResolutionEngine:
         """
         action = message.get("action")
         if action == "set_tool_delay":
-            tool = str(message.get("tool", "get_card_status"))
+            tool = str(message.get("tool", self.adapter.primary_delay_tool))
             delay = int(message.get("delay_ms", 0))
             self.backend.set_mock_tool_delay(tool, delay)
         elif action == "clear_delays":
@@ -836,37 +826,6 @@ def _split_sentence(buffer: str) -> tuple[str | None, str]:
     return None, buffer
 
 
-def _describe_payload(tool_name: str, payload: dict[str, Any]) -> str:
-    """Render a tool payload as a sentence for the model, not as JSON."""
-    readable = {
-        "get_card_status": lambda p: f"The card status is {p.get('card_status', 'unknown')}.",
-        "get_online_transaction_status": lambda p: (
-            f"Online transactions are {p.get('online_transactions', 'unknown')}."
-        ),
-        "get_registered_mobile_status": lambda p: (
-            f"The registered mobile number is {p.get('registered_mobile_status', 'unknown')}."
-        ),
-        "get_otp_generation_status": lambda p: (
-            f"One-time password generation is {p.get('otp_generation_status', 'unknown')}."
-        ),
-        "get_otp_delivery_status": lambda p: (
-            f"One-time password delivery is {p.get('otp_delivery_status', 'unknown')}"
-            + (
-                f", reason {p.get('otp_delivery_failure_reason')}."
-                if p.get("otp_delivery_failure_reason")
-                else "."
-            )
-        ),
-        "get_service_incidents": lambda p: (
-            f"The {p.get('service', 'service')} is {p.get('status', 'unknown')}. "
-            f"{p.get('summary', '')}".strip()
-        ),
-    }.get(tool_name)
-    if readable is None:
-        return json.dumps(payload, default=str)
-    return readable(payload)
-
-
 server = AgentServer()
 
 
@@ -883,7 +842,14 @@ async def unloop_session(ctx: JobContext) -> None:
 
     ctx.log_context_fields = {"room": ctx.room.name}
 
-    engine = ResolutionEngine(config)
+    domain_id: str | None = None
+    try:
+        dispatch_metadata = json.loads(ctx.job.metadata or "{}")
+        domain_id = str(dispatch_metadata.get("domain") or "") or None
+    except (TypeError, ValueError):
+        logger.warning("ignoring invalid agent dispatch metadata")
+
+    engine = ResolutionEngine(config, domain_id=domain_id)
     engine.room = ctx.room
 
     try:
@@ -922,7 +888,7 @@ async def unloop_session(ctx: JobContext) -> None:
     )
     await ctx.connect()
     await engine.publish_state()
-    await session.say(OPENING_LINE)
+    await session.say(engine.adapter.opening_line)
 
 
 if __name__ == "__main__":

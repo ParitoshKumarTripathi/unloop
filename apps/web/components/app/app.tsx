@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { TokenSource } from 'livekit-client';
 import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
@@ -28,14 +28,22 @@ interface AppProps {
 
 export function App({ agentName, demoMode = true }: AppProps) {
   const tokenSource = useMemo(() => TokenSource.endpoint('/api/token'), []);
+  const [selectedDomain, setSelectedDomain] = useState('banking');
 
-  const session = useSession(tokenSource, agentName ? { agentName } : undefined);
+  const session = useSession(tokenSource, {
+    ...(agentName ? { agentName } : {}),
+    agentMetadata: JSON.stringify({ domain: selectedDomain }),
+  });
 
   return (
     <AgentSessionProvider session={session}>
       <AppSetup />
       <main className="grid h-svh grid-cols-1 place-content-center">
-        <ViewController demoMode={demoMode} />
+        <ViewController
+          demoMode={demoMode}
+          selectedDomain={selectedDomain}
+          onSelectDomain={setSelectedDomain}
+        />
       </main>
       <StartAudioButton label="Start Audio" />
       <Toaster

@@ -1,0 +1,17 @@
+{
+  "fixture_id": "salon_appointment_changed",
+  "domain": "salon",
+  "scenario": "appointment_changed_in_error",
+  "label": "Appointment changed incorrectly",
+  "description": "A confirmed appointment was moved by an automated sync error.",
+  "customer": {"customer_id": "demo_salon_customer_001", "appointment_id": "APT-DEMO-309"},
+  "backend_state": {
+    "tool_results": {
+      "check_appointment_record": {"appointment_id": "APT-DEMO-309", "appointment_status": "CHANGED", "current_time": "16:00", "confirmed_time": "14:00"},
+      "check_appointment_history": {"change_cause": "SYSTEM_ERROR", "merchant_requested": false},
+      "reschedule_appointment": {"action_status": "RESCHEDULED", "new_time": "14:00"}
+    }
+  },
+  "tool_delays_ms": {"check_appointment_record": 900},
+  "expected_resolution": {"hypothesis": "APPOINTMENT_CHANGED_IN_ERROR", "action": "reschedule_appointment"}
+}

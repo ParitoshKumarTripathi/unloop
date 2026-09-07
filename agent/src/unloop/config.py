@@ -189,8 +189,8 @@ class RimeConfig:
 class STTConfig:
     model: str = "deepgram/nova-3"
     language: str = "en"
-    #: Domain terms boosted for Indian-English bank support calls. Deepgram's
-    #: keyterm boosting is what stops "OTP" being transcribed as "OTB" or "auto p".
+    #: Support terms boosted across the demo domains. Banking terms remain first so
+    #: the judged OTP path retains the same recognition bias.
     keyterms: tuple[str, ...] = (
         "OTP",
         "one time password",
@@ -202,6 +202,15 @@ class STTConfig:
         "SMS",
         "issuer",
         "payment gateway",
+        "refund",
+        "reservation",
+        "restaurant",
+        "appointment",
+        "salon",
+        "hotel booking",
+        "confirmation",
+        "rebook",
+        "reschedule",
     )
 
     @classmethod

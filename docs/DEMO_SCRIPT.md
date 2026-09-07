@@ -166,7 +166,7 @@ Fast. Repository tour, a few seconds each:
 docs/IMPLEMENTATION_PLAN.md    the API audit, written before any code
 RIME_EVIDENCE.md               claim, method, results, limitations
 docs/FAILURE_MODES.md          how this can fail, including how it can fail badly
-agent/tests/                   66 deterministic tests
+agent/tests/                   70 deterministic tests
 fixtures/                      five synthetic scenarios
 artifacts/                     machine-generated evidence
 ```

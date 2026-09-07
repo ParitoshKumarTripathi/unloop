@@ -36,6 +36,14 @@ class Subject(str, Enum):
     OTP_GENERATION = "otp_generation"
     OTP_DELIVERY = "otp_delivery"
     SERVICE_HEALTH = "service_health"
+    ORDER = "order"
+    REFUND = "refund"
+    PAYMENT_RAIL = "payment_rail"
+    RESERVATION = "reservation"
+    MERCHANT_RECORD = "merchant_record"
+    APPOINTMENT = "appointment"
+    BOOKING = "booking"
+    PARTNER_RECORD = "partner_record"
     CASE = "case"
 
 

@@ -91,6 +91,13 @@ The division of labour is the architecture:
 - **Rime** owns speech — WebSocket streaming, with word timestamps.
 - **UNLOOP** owns belief — what is established, what was refuted, what is obsolete.
 
+The same engine is composed with one small domain adapter at call start. Banking is
+the primary stress demo, not a special engine path. Included adapters cover banking
+OTP delivery, e-commerce refund reconciliation, restaurant reservation support,
+salon appointment support, and hotel booking reconciliation. Booking or rescheduling
+is only a corrective action for the current case; these are not discovery, travel
+planning, or concierge assistants.
+
 LiveKit stopping the audio when the caller interrupts is necessary and **not
 sufficient**. The audio stops; the tool call issued four seconds ago is still in
 flight and the response the LLM already started is still queued. Those are application
@@ -171,7 +178,9 @@ cd apps/web && cp .env.example .env.local   # fill in LiveKit creds, keep AGENT_
 pnpm install && pnpm dev
 ```
 
-Open http://localhost:3000 and click **Start call**. The resolution panel appears on
+Open http://localhost:3000, choose a support scenario, and click **Start call**. The
+choice travels in LiveKit agent-dispatch metadata, so the worker selects the adapter
+and synthetic context before the voice session begins. The resolution panel appears on
 the right at viewport widths of 1024px and up.
 
 On macOS or Linux use `agent/.venv/bin/python`. With [Task](https://taskfile.dev):
@@ -190,7 +199,7 @@ Two things worth knowing:
 
 | Command | What it does |
 |---|---|
-| `task test` | 66 deterministic tests — no key, no network, no model |
+| `task test` | 70 deterministic tests — no key, no network, no model |
 | `task evidence` | Runs every acceptance scenario, writes `artifacts/` |
 | `task acceptance` | Both, plus live catalog verification |
 | `task catalog` | Checks the configured voice against Rime's live catalog |
@@ -282,10 +291,11 @@ agent/src/unloop/
   prompts.py          written-for-the-ear instructions
   harness.py          deterministic scenario runner (tests AND evidence use this)
   resolution/         state, hypotheses, corrections, stale_fence, output_guard, loop_detector
-  tools/              synthetic banking backend, escalation packet, typed results
+  tools/              shared fixture transport, banking backend, escalation, typed results
   fixtures/           fixture loading and the injectable latency table
-agent/tests/          66 deterministic tests
-fixtures/             the five scenario files
+  domains/            thin banking, e-commerce, restaurant, salon and hotel adapters
+agent/tests/          deterministic core and cross-domain tests
+fixtures/             synthetic domain scenario files
 scripts/              acceptance, evidence, benchmark, catalog check, preflight
 artifacts/            machine-generated evidence
 docs/                 IMPLEMENTATION_PLAN, ARCHITECTURE, FAILURE_MODES, DEMO_SCRIPT

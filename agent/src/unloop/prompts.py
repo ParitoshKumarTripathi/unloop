@@ -82,14 +82,18 @@ OPENING_LINE = (
 )
 
 
-def build_instructions(state: ResolutionState) -> str:
+def build_instructions(
+    state: ResolutionState,
+    *,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> str:
     """System prompt plus a compact, current view of what is established.
 
     Regenerated per turn so the model is never reasoning from a stale picture. Kept
     deliberately short: context bloat costs latency on every turn, and the model does
     not need the full state — only what would change what it says next.
     """
-    lines = [SYSTEM_PROMPT, "", "# What you have established so far", ""]
+    lines = [system_prompt, "", "# What you have established so far", ""]
 
     if state.confirmed_facts:
         lines.append("Confirmed:")
@@ -159,11 +163,11 @@ _BRANCH_PHRASES = {
 }
 
 
-def branch_phrase(branch: str | None) -> str | None:
+def branch_phrase(branch: str | None, phrases: dict[str, str] | None = None) -> str | None:
     """An ear-friendly name for a diagnostic branch."""
     if branch is None:
         return None
-    return _BRANCH_PHRASES.get(branch, branch.replace("_", " "))
+    return (phrases or _BRANCH_PHRASES).get(branch, branch.replace("_", " "))
 
 
 def _humanise(value: str) -> str:

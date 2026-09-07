@@ -37,14 +37,19 @@ export function DebugPanel({ demoMode = true }: { demoMode?: boolean }) {
   }
 
   const { state, speech, fixture, handoff } = data;
-  const currentDelay = fixture.tool_delays_ms['get_card_status'] ?? 0;
+  const currentDelay = fixture.tool_delays_ms[fixture.primary_delay_tool] ?? 0;
 
   return (
     <aside className="border-border bg-muted/20 flex h-full w-full flex-col gap-2.5 overflow-y-auto border-l p-3">
       <SpeechBadge speech={speech} />
 
       <div className="border-border bg-background/60 rounded-md border p-2.5">
-        <div className="text-[11px] font-semibold tracking-wide uppercase">Issue</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] font-semibold tracking-wide uppercase">Issue</div>
+          <div className="bg-muted rounded-full px-2 py-0.5 font-mono text-[9px] tracking-wider uppercase">
+            {fixture.domain}
+          </div>
+        </div>
         <div className="text-muted-foreground mt-0.5 text-[11px]">{state.issue_summary}</div>
         <div className="text-muted-foreground mt-1 font-mono text-[10px]">
           {fixture.fixture_id} · turn {state.turn} · session {state.session_id.slice(0, 12)}
@@ -63,7 +68,8 @@ export function DebugPanel({ demoMode = true }: { demoMode?: boolean }) {
       {demoMode && (
         <DemoControls
           currentDelay={currentDelay}
-          onSetDelay={(ms) => setToolDelay('get_card_status', ms)}
+          delayTool={fixture.primary_delay_tool}
+          onSetDelay={(ms) => setToolDelay(fixture.primary_delay_tool, ms)}
           onClear={clearDelays}
           fixtureLabel={fixture.label}
         />
@@ -82,11 +88,13 @@ export function DebugPanel({ demoMode = true }: { demoMode?: boolean }) {
  */
 function DemoControls({
   currentDelay,
+  delayTool,
   onSetDelay,
   onClear,
   fixtureLabel,
 }: {
   currentDelay: number;
+  delayTool: string;
   onSetDelay: (ms: number) => void;
   onClear: () => void;
   fixtureLabel: string;
@@ -99,7 +107,9 @@ function DemoControls({
       </p>
 
       <div className="mt-2">
-        <div className="text-muted-foreground text-[10px] uppercase">get_card_status delay</div>
+        <div className="text-muted-foreground font-mono text-[10px] uppercase">
+          {delayTool} delay
+        </div>
         <div className="mt-1 flex gap-1">
           {[0, 3000, 5000].map((ms) => (
             <button
@@ -130,8 +140,8 @@ function DemoControls({
         <div className="text-muted-foreground text-[10px] uppercase">scenario</div>
         <div className="mt-0.5 text-[11px]">{fixtureLabel}</div>
         <p className="text-muted-foreground mt-1 text-[10px]">
-          Scenario is chosen by the worker at call start via <code>UNLOOP_FIXTURE</code>. Restart
-          the agent to change it.
+          Scenario was selected before this LiveKit session started. End the call to choose another
+          domain.
         </p>
       </div>
     </section>

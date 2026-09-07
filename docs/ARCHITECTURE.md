@@ -34,6 +34,27 @@ tool call issued four seconds ago is still in flight, and the response the LLM a
 started generating is still queued. Those are business state. Silence is not
 correctness.
 
+### Domain composition
+
+`ResolutionEngine` is created once per call with a domain adapter selected from
+LiveKit agent-dispatch metadata. The adapter supplies the issue, fixture, tool
+definitions, hypothesis set, correction patterns, payload interpretation, corrective
+actions, spoken opening, and escalation destination. It does not implement versioning,
+stale fencing, loop detection, speech gating, interruption handling, or handoff
+serialization.
+
+```text
+LiveKit session
+  -> ResolutionEngine (shared state, corrections, loops, fences, handoff)
+       -> DomainAdapter (domain facts and operations)
+            -> synthetic fixture-backed tools
+  -> Rime TTS (unchanged guarded speech path)
+```
+
+Cross-domain tests exercise non-banking corrections, stale results, strategy changes,
+corrective actions, output-guard rejection, loop detection, and escalation. Banking
+keeps the original backend and remains the primary slow-tool interruption stress test.
+
 ## 2. Data flow for one turn
 
 ```
@@ -205,12 +226,14 @@ sentence immediately before synthesis.
 
 ## 9. Tools
 
-`tools/banking.py`. Every call goes through `SupportBackend.call()`, which registers
-the call **before** awaiting — so `originating_state_version` is the version that was
-current when we decided to ask, not whatever it becomes by the time the result lands.
+Banking calls go through `SupportBackend.call()`; other adapters use the equivalent
+shared `FixtureSupportBackend.call()` transport. Both register the call **before**
+awaiting, so `originating_state_version` is the version that was current when we
+decided to ask, not whatever it becomes by the time the result lands.
 
-Subjects (`tools/types.py`) are what the fence keys on, not tool names, so a new
-card-related tool is fenced correctly without touching the fence.
+Subjects (`tools/types.py`) are what the fence keys on, not tool names, so a new tool
+about a refund, reservation, appointment, booking, or card is fenced correctly
+without touching the fence.
 
 Latency is injectable per tool (`LatencyTable`), clamped to 15 s. The demo panel can
 set it; it cannot change what a tool *returns*.

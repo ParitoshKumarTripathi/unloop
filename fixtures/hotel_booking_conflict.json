@@ -1,0 +1,17 @@
+{
+  "fixture_id": "hotel_booking_conflict",
+  "domain": "hotel",
+  "scenario": "confirmed_booking_missing_at_hotel",
+  "label": "Confirmed hotel booking missing",
+  "description": "Platform booking is confirmed but absent from the hotel's property system.",
+  "customer": {"customer_id": "demo_hotel_guest_001", "booking_id": "HTL-DEMO-552"},
+  "backend_state": {
+    "tool_results": {
+      "check_platform_booking": {"booking_id": "HTL-DEMO-552", "platform_status": "CONFIRMED", "room_type": "Deluxe King"},
+      "check_hotel_record": {"hotel_status": "MISSING", "property_reference": null},
+      "reconcile_hotel_booking": {"action_status": "RECONCILED", "property_reference": "PROP-DEMO-552"}
+    }
+  },
+  "tool_delays_ms": {"check_platform_booking": 1000},
+  "expected_resolution": {"hypothesis": "HOTEL_SYNC_FAILURE", "action": "reconcile_hotel_booking"}
+}

@@ -38,7 +38,15 @@ const VIEW_MOTION_PROPS = {
  * while the call is happening. On a narrow screen the panel drops below, and on the
  * welcome screen it is not rendered at all.
  */
-export function ViewController({ demoMode = true }: { demoMode?: boolean }) {
+export function ViewController({
+  demoMode = true,
+  selectedDomain,
+  onSelectDomain,
+}: {
+  demoMode?: boolean;
+  selectedDomain: string;
+  onSelectDomain: (domain: string) => void;
+}) {
   const { isConnected, start } = useSessionContext();
   const { resolvedTheme } = useTheme();
 
@@ -51,6 +59,8 @@ export function ViewController({ demoMode = true }: { demoMode?: boolean }) {
           {...VIEW_MOTION_PROPS}
           startButtonText="Start call"
           onStartCall={start}
+          selectedDomain={selectedDomain}
+          onSelectDomain={onSelectDomain}
         />
       )}
 

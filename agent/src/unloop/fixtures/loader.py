@@ -30,9 +30,9 @@ def _fixtures_dir() -> Path:
     here = Path(__file__).resolve()
     for parent in here.parents:
         candidate = parent / "fixtures"
-        if candidate.is_dir() and any(candidate.glob("otp_*.json")):
+        if candidate.is_dir() and any(candidate.glob("*.json")):
             return candidate
-    raise FileNotFoundError("could not locate the fixtures/ directory containing otp_*.json")
+    raise FileNotFoundError("could not locate the fixtures/ directory containing scenario JSON")
 
 
 @dataclass
@@ -40,6 +40,8 @@ class Fixture:
     """One deterministic scenario."""
 
     fixture_id: str
+    domain: str
+    scenario: str
     label: str
     description: str
     customer: dict[str, Any]
@@ -52,6 +54,8 @@ class Fixture:
     def from_dict(cls, data: dict[str, Any]) -> Fixture:
         return cls(
             fixture_id=data["fixture_id"],
+            domain=data.get("domain", "banking"),
+            scenario=data.get("scenario", data["fixture_id"]),
             label=data.get("label", data["fixture_id"]),
             description=data.get("description", ""),
             customer=data.get("customer", {}),
@@ -72,6 +76,8 @@ class Fixture:
     def to_dict(self) -> dict[str, Any]:
         return {
             "fixture_id": self.fixture_id,
+            "domain": self.domain,
+            "scenario": self.scenario,
             "label": self.label,
             "description": self.description,
             "customer": self.customer,
@@ -85,19 +91,23 @@ class Fixture:
 def load_fixture(fixture_id: str = DEFAULT_FIXTURE) -> Fixture:
     path = _fixtures_dir() / f"{fixture_id}.json"
     if not path.is_file():
-        available = ", ".join(sorted(p.stem for p in _fixtures_dir().glob("otp_*.json")))
+        available = ", ".join(sorted(p.stem for p in _fixtures_dir().glob("*.json")))
         raise FileNotFoundError(f"unknown fixture {fixture_id!r}; available: {available}")
     return Fixture.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
-def available_fixtures() -> list[dict[str, str]]:
+def available_fixtures(domain: str | None = None) -> list[dict[str, str]]:
     """Fixture ids and labels, for the demo control panel."""
     out: list[dict[str, str]] = []
-    for path in sorted(_fixtures_dir().glob("otp_*.json")):
+    for path in sorted(_fixtures_dir().glob("*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
+        fixture_domain = data.get("domain", "banking")
+        if domain is not None and fixture_domain != domain:
+            continue
         out.append(
             {
                 "fixture_id": data["fixture_id"],
+                "domain": fixture_domain,
                 "label": data.get("label", data["fixture_id"]),
                 "description": data.get("description", ""),
             }

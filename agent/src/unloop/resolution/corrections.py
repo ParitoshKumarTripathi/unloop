@@ -23,6 +23,7 @@ over.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -160,6 +161,19 @@ _GENERIC_DENIAL = _rx(
 class CorrectionExtractor:
     """Turns a caller utterance into structured extractions."""
 
+    def __init__(
+        self,
+        *,
+        denials: tuple[tuple[str, re.Pattern[str], frozenset[Subject]], ...] | None = None,
+        evidence_patterns: tuple[tuple[re.Pattern[str], str], ...] | None = None,
+        redirects: tuple[tuple[re.Pattern[str], Subject], ...] | None = None,
+        hypothesis_subjects: dict[str, frozenset[Subject]] | None = None,
+    ) -> None:
+        self._denials = denials or _DENIALS
+        self._evidence_patterns = evidence_patterns or _EVIDENCE_PATTERNS
+        self._redirects = redirects or _REDIRECTS
+        self._hypothesis_subjects = hypothesis_subjects
+
     def extract(self, utterance: str, state: ResolutionState) -> list[Extraction]:
         """Find every correction, redirect and complaint in one utterance.
 
@@ -177,7 +191,7 @@ class CorrectionExtractor:
 
         # 1. Explicit, targeted denials.
         denied: set[str] = set()
-        for hypothesis_id, pattern, subjects in _DENIALS:
+        for hypothesis_id, pattern, subjects in self._denials:
             if pattern.search(text):
                 denied.add(hypothesis_id)
                 hypothesis = state.get_hypothesis(hypothesis_id)
@@ -207,13 +221,13 @@ class CorrectionExtractor:
                         target=target,
                         claim=f"caller denies: {label}",
                         evidence=evidence or "caller rejected the stated diagnosis",
-                        invalidates=_subjects_for(target),
+                        invalidates=self._subjects_for(target),
                         raw=text,
                     )
                 )
 
         # 3. Redirects.
-        for pattern, subject in _REDIRECTS:
+        for pattern, subject in self._redirects:
             if pattern.search(text):
                 found.append(
                     Extraction(
@@ -242,10 +256,15 @@ class CorrectionExtractor:
         return found
 
     def _extract_evidence(self, text: str) -> str:
-        for pattern, summary in _EVIDENCE_PATTERNS:
+        for pattern, summary in self._evidence_patterns:
             if pattern.search(text):
                 return summary
         return ""
+
+    def _subjects_for(self, hypothesis_id: str) -> frozenset[Subject]:
+        if self._hypothesis_subjects is not None:
+            return self._hypothesis_subjects.get(hypothesis_id, frozenset())
+        return _subjects_for(hypothesis_id)
 
     def _most_recently_suggested(self, state: ResolutionState) -> str | None:
         """The last hypothesis we actually said out loud.
@@ -286,8 +305,14 @@ class CorrectionReconciler:
     the behaviour this product exists to eliminate.
     """
 
-    def __init__(self, state: ResolutionState) -> None:
+    def __init__(
+        self,
+        state: ResolutionState,
+        *,
+        conflict_resolver: Callable[[ResolutionState, str], str | None] | None = None,
+    ) -> None:
         self._state = state
+        self._conflict_resolver = conflict_resolver
 
     def apply(self, utterance: str, extractions: list[Extraction]) -> list[Correction]:
         applied: list[Correction] = []
@@ -353,6 +378,8 @@ class CorrectionReconciler:
         this only records the disagreement so it reaches the human.
         """
         state = self._state
+        if self._conflict_resolver is not None:
+            return self._conflict_resolver(state, hypothesis_id)
         if hypothesis_id != "CARD_BLOCKED":
             return None
         result = state.latest_result_for(Subject.CARD)

@@ -11,6 +11,7 @@ was already tried, and where this should go next.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -96,7 +97,11 @@ def recommend_destination(state: ResolutionState) -> str:
     return "General banking support"
 
 
-def build_handoff_packet(state: ResolutionState) -> HandoffPacket:
+def build_handoff_packet(
+    state: ResolutionState,
+    *,
+    destination_resolver: Callable[[ResolutionState], str] | None = None,
+) -> HandoffPacket:
     """Serialise the resolution state into a human-usable packet."""
     confirmed = [
         {"key": f.key, "value": f.value, "source": f.source.value} for f in state.confirmed_facts
@@ -161,7 +166,7 @@ def build_handoff_packet(state: ResolutionState) -> HandoffPacket:
         user_corrections=corrections,
         attempted=attempted,
         open_questions=open_questions,
-        recommended_destination=recommend_destination(state),
+        recommended_destination=(destination_resolver or recommend_destination)(state),
         conflicts=conflicts,
         stale_results_fenced=sum(1 for t in state.completed_tools if t.stale),
     )

@@ -398,11 +398,16 @@ class ScenarioHarness:
         for record in state.speech_records.values():
             if not record.was_heard:
                 continue
-            if (record.started_at or 0.0) < rejection_event.timestamp:
-                continue
             for hypothesis_id in rejected_ids:
                 hypothesis = state.get_hypothesis(hypothesis_id)
-                if hypothesis and hypothesis.asserted_in(record.heard_text):
+                if hypothesis is None or hypothesis.rejected_at_version is None:
+                    continue
+                # State versions are the authoritative ordering boundary. Wall-clock
+                # timestamps can tie on Windows during fast deterministic runs,
+                # incorrectly making pre-correction speech look post-correction.
+                if record.state_version < hypothesis.rejected_at_version:
+                    continue
+                if hypothesis.asserted_in(record.heard_text):
                     return False
         return True
 

@@ -21,45 +21,92 @@ function WelcomeImage() {
 interface WelcomeViewProps {
   startButtonText: string;
   onStartCall: () => void;
+  selectedDomain: string;
+  onSelectDomain: (domain: string) => void;
 }
+
+const SUPPORT_SCENARIOS = [
+  ['banking', 'Banking', 'OTP not received', 'A debit-card payment OTP never arrives.'],
+  ['ecommerce', 'E-commerce', 'Refund missing', 'A processed refund has not reached the customer.'],
+  [
+    'restaurant',
+    'Restaurant',
+    'Reservation missing',
+    'The restaurant cannot find a confirmed reservation.',
+  ],
+  [
+    'salon',
+    'Salon',
+    'Appointment changed',
+    'A confirmed appointment was changed or cancelled incorrectly.',
+  ],
+  ['hotel', 'Hotel', 'Booking conflict', 'The hotel cannot locate a confirmed booking.'],
+] as const;
 
 export const WelcomeView = ({
   startButtonText,
   onStartCall,
+  selectedDomain,
+  onSelectDomain,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const selected = SUPPORT_SCENARIOS.find(([id]) => id === selectedDomain);
+
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center text-center">
+    <div ref={ref} className="w-full px-5 py-8">
+      <section className="bg-background mx-auto flex w-full max-w-5xl flex-col items-center justify-center text-center">
         <WelcomeImage />
 
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
+        <p className="text-muted-foreground font-mono text-[11px] tracking-[0.24em] uppercase">
+          Unloop resolution agent
         </p>
+        <h1 className="text-foreground mt-2 max-w-2xl text-2xl font-semibold tracking-tight md:text-4xl">
+          Customer support that changes strategy when it is wrong.
+        </h1>
+        <p className="text-muted-foreground mt-3 max-w-2xl text-sm leading-6 md:text-base">
+          Choose an existing support problem. The same voice engine investigates, takes corrective
+          action, fences stale results, and escalates with context.
+        </p>
+
+        <div className="mt-8 w-full text-left">
+          <div className="text-foreground mb-3 text-center text-xs font-semibold tracking-wide uppercase">
+            Choose support scenario
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {SUPPORT_SCENARIOS.map(([id, label, short, description]) => {
+              const active = id === selectedDomain;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectDomain(id)}
+                  className={[
+                    'min-h-32 rounded-xl border p-4 text-left transition-all',
+                    active
+                      ? 'border-foreground bg-foreground text-background shadow-lg'
+                      : 'border-border bg-card hover:border-foreground/40 hover:bg-muted/50',
+                  ].join(' ')}
+                >
+                  <span className="font-mono text-[10px] tracking-wider uppercase opacity-70">
+                    {short}
+                  </span>
+                  <span className="mt-2 block text-sm font-semibold">{label}</span>
+                  <span className="mt-2 block text-[11px] leading-4 opacity-70">{description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <Button
           size="lg"
           onClick={onStartCall}
-          className="mt-6 w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
+          className="mt-7 w-72 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
         >
-          {startButtonText}
+          {startButtonText}: {selected?.[1]}
         </Button>
       </section>
-
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
-          >
-            Voice AI quickstart
-          </a>
-          .
-        </p>
-      </div>
     </div>
   );
 };

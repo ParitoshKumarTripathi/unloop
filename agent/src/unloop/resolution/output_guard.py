@@ -71,8 +71,18 @@ _HYPOTHESIS_SUBJECTS: dict[str, frozenset[Subject]] = {
 class OutputGuard:
     """Deterministic pre-speech gate."""
 
-    def __init__(self, state: ResolutionState) -> None:
+    def __init__(
+        self,
+        state: ResolutionState,
+        *,
+        hypothesis_subjects: dict[str, frozenset[Subject]] | None = None,
+        remediation_actions: set[str] | frozenset[str] | None = None,
+    ) -> None:
         self._state = state
+        self._hypothesis_subjects = hypothesis_subjects or _HYPOTHESIS_SUBJECTS
+        self._remediation_actions = set(
+            remediation_actions or {"resend_otp", "retry_otp_delivery", "reset_online_transactions"}
+        )
 
     def analyse(self, text: str) -> tuple[tuple[str, ...], frozenset[Subject]]:
         """Which hypotheses does ``text`` assert, and what subjects does it depend on?
@@ -84,7 +94,7 @@ class OutputGuard:
         asserted = tuple(h.id for h in self._state.hypotheses.values() if h.asserted_in(text))
         subjects: set[Subject] = set()
         for hypothesis_id in asserted:
-            subjects |= _HYPOTHESIS_SUBJECTS.get(hypothesis_id, frozenset())
+            subjects |= self._hypothesis_subjects.get(hypothesis_id, frozenset())
         return asserted, frozenset(subjects)
 
     def check(self, text: str, *, speech_id: str = "") -> GuardResult:
@@ -167,5 +177,4 @@ class OutputGuard:
         state = self._state
         if state.escalation_status.value in ("CREATED", "HANDED_OFF"):
             return True
-        remediation = {"resend_otp", "retry_otp_delivery", "reset_online_transactions"}
-        return any(action in remediation for action in state.attempted_actions)
+        return any(action in self._remediation_actions for action in state.attempted_actions)
