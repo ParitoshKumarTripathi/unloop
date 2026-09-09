@@ -184,6 +184,23 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("get_online_transaction_status")
 
     @function_tool
+    async def list_recent_transactions(self, context: RunContext, limit: int = 5) -> str:
+        """List recent synthetic transactions for the authenticated demo customer.
+
+        Use this when asked about the last, latest, or recent transaction or transaction history.
+        """
+        return await self.engine.run_tool("list_recent_transactions", limit=limit)
+
+    @function_tool
+    async def get_transaction(self, context: RunContext, transaction_id: str) -> str:
+        """Look up a synthetic banking transaction by ID.
+
+        Args:
+            transaction_id: Full or spoken ID, for example TXN-501, 501, or five zero one.
+        """
+        return await self.engine.run_tool("get_transaction", transaction_id=transaction_id)
+
+    @function_tool
     async def check_registered_mobile(self, context: RunContext) -> str:
         """Check whether the mobile number on file is verified.
 
@@ -248,6 +265,26 @@ class UnloopAgent(Agent):
     async def request_return(self, context: RunContext) -> str:
         """Open a return for the customer's existing delivered order."""
         return await self.engine.run_tool("request_return")
+
+    @function_tool
+    async def list_orders(self, context: RunContext) -> str:
+        """List the authenticated synthetic customer's orders and their IDs."""
+        return await self.engine.run_tool("list_orders")
+
+    @function_tool
+    async def get_order(self, context: RunContext, order_id: str) -> str:
+        """Retrieve full synthetic order details by full, numeric, or spoken ID."""
+        return await self.engine.run_tool("get_order", order_id=order_id)
+
+    @function_tool
+    async def list_refunds(self, context: RunContext) -> str:
+        """List the authenticated synthetic customer's refunds and their IDs."""
+        return await self.engine.run_tool("list_refunds")
+
+    @function_tool
+    async def get_refund(self, context: RunContext, refund_id: str) -> str:
+        """Retrieve full synthetic refund details by full, numeric, or spoken ID."""
+        return await self.engine.run_tool("get_refund", refund_id=refund_id)
 
     @function_tool
     async def check_platform_reservation(self, context: RunContext) -> str:
@@ -341,6 +378,16 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("rebook_appointment", new_time=new_time)
 
     @function_tool
+    async def list_appointments(self, context: RunContext) -> str:
+        """List the authenticated synthetic customer's appointments and their IDs."""
+        return await self.engine.run_tool("list_appointments")
+
+    @function_tool
+    async def get_appointment(self, context: RunContext, appointment_id: str) -> str:
+        """Retrieve full synthetic appointment details by full, numeric, or spoken ID."""
+        return await self.engine.run_tool("get_appointment", appointment_id=appointment_id)
+
+    @function_tool
     async def check_platform_booking(self, context: RunContext) -> str:
         """Check the existing hotel booking confirmation."""
         return await self.engine.run_tool("check_platform_booking")
@@ -387,6 +434,16 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool(
             "rebook_hotel_booking", check_in=check_in, check_out=check_out
         )
+
+    @function_tool
+    async def list_bookings(self, context: RunContext) -> str:
+        """List the authenticated synthetic customer's hotel bookings and their IDs."""
+        return await self.engine.run_tool("list_bookings")
+
+    @function_tool
+    async def get_booking(self, context: RunContext, booking_id: str) -> str:
+        """Retrieve full synthetic hotel booking details by full, numeric, or spoken ID."""
+        return await self.engine.run_tool("get_booking", booking_id=booking_id)
 
     @function_tool
     async def escalate_to_human(self, context: RunContext, reason: str) -> str:

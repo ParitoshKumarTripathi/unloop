@@ -82,9 +82,15 @@ class RestaurantAdapter(DomainAdapter):
     )
     goals = (
         goal(
+            "view_reservation_details",
+            "Retrieve reservation details such as ID, time, date, or party size",
+            r"\b(?:what|which|when|how many|tell me|show|details?|id|time|date)\b.*\b(?:reservation|booking|table|people|persons?|guests?|party size)\b",
+            subjects=frozenset({Subject.RESERVATION}),
+        ),
+        goal(
             "change_party_size",
             "Change the reservation party size",
-            r"\b(?:party size|people|persons?|guests?)\b",
+            r"\b(?:change|make|update|increase|decrease|add|remove)\b.*\b(?:party size|people|persons?|guests?)\b",
             subjects=frozenset({Subject.RESERVATION}),
         ),
         goal(
@@ -216,20 +222,8 @@ class RestaurantAdapter(DomainAdapter):
                 },
             )
         if tool_name == "get_reservation":
-            return await backend.call(
-                tool_name,
-                lambda: {
-                    "customer_id": backend.customer_id,
-                    **(
-                        backend.sandbox.get_record(
-                            backend.customer_id,
-                            self.domain_id,
-                            "reservation",
-                            kwargs.get("reservation_id"),
-                        )
-                        or {}
-                    ),
-                },
+            return await backend.get_record(
+                tool_name, "reservation", kwargs.get("reservation_id", "")
             )
         if tool_name == "check_platform_reservation":
 

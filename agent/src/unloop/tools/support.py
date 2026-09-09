@@ -101,6 +101,36 @@ class FixtureSupportBackend:
 
         return await self.call(tool_name, handler)
 
+    async def list_records(
+        self, tool_name: str, record_key: str
+    ) -> tuple[ToolResult, FenceDecision]:
+        return await self.call(
+            tool_name,
+            lambda: {
+                "customer_id": self.customer_id,
+                f"{record_key}s": self.sandbox.list_records(
+                    self.customer_id, self.fixture.domain, record_key
+                ),
+            },
+        )
+
+    async def get_record(
+        self, tool_name: str, record_key: str, identifier: str
+    ) -> tuple[ToolResult, FenceDecision]:
+        def handler() -> dict[str, Any]:
+            record = self.sandbox.get_record_by_identifier(
+                self.customer_id, self.fixture.domain, record_key, identifier
+            )
+            if record is None:
+                return {
+                    "customer_id": self.customer_id,
+                    "found": False,
+                    "requested_id": identifier,
+                }
+            return {"customer_id": self.customer_id, "found": True, **record}
+
+        return await self.call(tool_name, handler)
+
     async def update_record(
         self,
         tool_name: str,

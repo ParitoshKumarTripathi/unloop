@@ -55,6 +55,26 @@ _NUMBER_WORDS = {
 }
 
 _GOAL_HINTS: dict[str, re.Pattern[str]] = {
+    "view_card_details": re.compile(r"(?:कार्ड).*(?:आईडी|आखिरी चार|नंबर|विवरण)", re.IGNORECASE),
+    "view_otp_event_details": re.compile(
+        r"(?:ओटीपी|वन.?टाइम|कोड).*(?:आईडी|स्थिति|विवरण)", re.IGNORECASE
+    ),
+    "review_transactions": re.compile(
+        r"(?:लेनदेन|ट्रांजैक्शन|भुगतान).*(?:आखिरी|पिछला|हाल|आईडी|स्थिति|विवरण)", re.IGNORECASE
+    ),
+    "view_refund_details": re.compile(
+        r"(?:रिफंड|पैसे वापस).*(?:कितना|राशि|आईडी|स्थिति|विवरण)", re.IGNORECASE
+    ),
+    "view_order_details": re.compile(r"(?:ऑर्डर).*(?:आईडी|सामान|स्थिति|विवरण)", re.IGNORECASE),
+    "view_reservation_details": re.compile(
+        r"(?:रिजर्वेशन|बुकिंग).*(?:आईडी|समय|तारीख|कितने|लोग|विवरण)", re.IGNORECASE
+    ),
+    "view_appointment_details": re.compile(
+        r"(?:अपॉइंटमेंट).*(?:आईडी|समय|तारीख|सेवा|स्टाइलिस्ट|विवरण)", re.IGNORECASE
+    ),
+    "view_booking_details": re.compile(
+        r"(?:होटल|बुकिंग).*(?:आईडी|तारीख|कमरा|कितने|मेहमान|विवरण)", re.IGNORECASE
+    ),
     "resolve_otp": re.compile(r"(?:ओटीपी|वन.?टाइम|कोड)", re.IGNORECASE),
     "verify_card": re.compile(r"(?:कार्ड).*(?:स्थिति|ब्लॉक|चालू|पेमेंट)", re.IGNORECASE),
     "resolve_refund": re.compile(r"(?:रिफंड|पैसे वापस|क्रेडिट)", re.IGNORECASE),

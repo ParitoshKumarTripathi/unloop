@@ -21,6 +21,14 @@ class SalonAdapter(DomainAdapter):
     primary_delay_tool = "check_appointment_record"
     tools = (
         ToolDefinition(
+            "list_appointments", Subject.APPOINTMENT, "list the customer's synthetic appointments"
+        ),
+        ToolDefinition(
+            "get_appointment",
+            Subject.APPOINTMENT,
+            "get an appointment by full or spoken synthetic ID",
+        ),
+        ToolDefinition(
             "check_appointment_record", Subject.APPOINTMENT, "check the confirmed appointment"
         ),
         ToolDefinition(
@@ -61,6 +69,12 @@ class SalonAdapter(DomainAdapter):
         ),
     )
     goals = (
+        goal(
+            "view_appointment_details",
+            "Retrieve appointment details such as ID, service, provider, date, or time",
+            r"\b(?:what|which|when|who|tell me|show|details?|id|service|provider|stylist|time|date)\b.*\b(?:appointment|salon|service|provider|stylist)\b|\bappointment\b.*\b(?:details?|id|service|provider|stylist|time|date)\b",
+            subjects=frozenset({Subject.APPOINTMENT}),
+        ),
         goal(
             "change_appointment_service",
             "Change the service on an appointment",
@@ -183,6 +197,12 @@ class SalonAdapter(DomainAdapter):
         ]
 
     async def invoke(self, backend, tool_name: str, **kwargs):
+        if tool_name == "list_appointments":
+            return await backend.list_records(tool_name, "appointment")
+        if tool_name == "get_appointment":
+            return await backend.get_record(
+                tool_name, "appointment", kwargs.get("appointment_id", "")
+            )
         if tool_name == "check_appointment_record":
 
             def appointment():

@@ -32,6 +32,7 @@ class Subject(str, Enum):
 
     CARD = "card"
     ONLINE_TXN = "online_txn"
+    TRANSACTION = "transaction"
     MOBILE = "mobile"
     OTP_GENERATION = "otp_generation"
     OTP_DELIVERY = "otp_delivery"

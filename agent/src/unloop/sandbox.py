@@ -7,6 +7,7 @@ remain responsible only for deterministic latency/failure injection and test ora
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 import time
@@ -239,6 +240,44 @@ class SyntheticSupportSandbox:
                 (customer_id, domain, record_type),
             ).fetchone()
         return json.loads(row["data_json"]) if row else None
+
+    def get_record_by_identifier(
+        self,
+        customer_id: str,
+        domain: str,
+        record_type: str,
+        identifier: str,
+    ) -> dict[str, Any] | None:
+        """Resolve a record from a full, numeric, or voice-transcribed synthetic ID."""
+        raw = str(identifier).strip().lower()
+        words = {
+            "zero": "0",
+            "oh": "0",
+            "one": "1",
+            "two": "2",
+            "three": "3",
+            "four": "4",
+            "five": "5",
+            "six": "6",
+            "seven": "7",
+            "eight": "8",
+            "nine": "9",
+        }
+        spoken_digits = "".join(
+            words[token] for token in re.findall(r"[a-z]+", raw) if token in words
+        )
+        numeric = "".join(re.findall(r"\d", raw)) or spoken_digits
+        canonical = raw.upper()
+        for record in self.list_records(customer_id, domain, record_type):
+            record_id = str(
+                record.get(f"{record_type}_id")
+                or record.get("id")
+                or record.get("otp_event_id")
+                or ""
+            ).upper()
+            if record_id == canonical or (numeric and record_id.endswith(numeric)):
+                return record
+        return None
 
     def find_record(
         self, customer_id: str, domain: str, record_type: str, field: str, value: Any

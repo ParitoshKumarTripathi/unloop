@@ -20,6 +20,10 @@ class EcommerceAdapter(DomainAdapter):
     escalation_destination = "Refund reconciliation team"
     primary_delay_tool = "check_refund_record"
     tools = (
+        ToolDefinition("list_orders", Subject.ORDER, "list the customer's synthetic orders"),
+        ToolDefinition("get_order", Subject.ORDER, "get an order by full or spoken synthetic ID"),
+        ToolDefinition("list_refunds", Subject.REFUND, "list the customer's synthetic refunds"),
+        ToolDefinition("get_refund", Subject.REFUND, "get a refund by full or spoken synthetic ID"),
         ToolDefinition("check_refund_record", Subject.REFUND, "check the merchant refund ledger"),
         ToolDefinition(
             "trace_refund_payment",
@@ -51,6 +55,18 @@ class EcommerceAdapter(DomainAdapter):
         ),
     )
     goals = (
+        goal(
+            "view_refund_details",
+            "Retrieve refund details such as ID, amount, or status",
+            r"\b(?:what|which|how much|tell me|show|details?|id|amount|status)\b.*\brefund\b|\brefund\b.*\b(?:details?|id|amount|status|how much)\b",
+            subjects=frozenset({Subject.REFUND}),
+        ),
+        goal(
+            "view_order_details",
+            "Retrieve order details such as ID, item, or status",
+            r"\b(?:what|which|tell me|show|details?|id|item|status)\b.*\border\b|\border\b.*\b(?:details?|id|item|status)\b",
+            subjects=frozenset({Subject.ORDER}),
+        ),
         goal(
             "cancel_order",
             "Cancel an existing order",
@@ -157,6 +173,14 @@ class EcommerceAdapter(DomainAdapter):
         ]
 
     async def invoke(self, backend, tool_name: str, **kwargs):
+        if tool_name == "list_orders":
+            return await backend.list_records(tool_name, "order")
+        if tool_name == "get_order":
+            return await backend.get_record(tool_name, "order", kwargs.get("order_id", ""))
+        if tool_name == "list_refunds":
+            return await backend.list_records(tool_name, "refund")
+        if tool_name == "get_refund":
+            return await backend.get_record(tool_name, "refund", kwargs.get("refund_id", ""))
         if tool_name == "check_order_status":
             return await backend.inspect_record(tool_name, "order")
         if tool_name == "check_refund_record":

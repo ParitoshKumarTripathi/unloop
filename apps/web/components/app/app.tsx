@@ -6,7 +6,6 @@ import { useSession, useSessionContext } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
-import { BrandMark } from '@/components/app/brand-mark';
 import { ThemeToggle } from '@/components/app/theme-toggle';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
@@ -28,20 +27,21 @@ function LocalizedChrome() {
   const { isConnected } = useSessionContext();
   return (
     <>
-      <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-        {isConnected ? <BrandMark compact /> : <div aria-hidden="true" />}
-        <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
-          {t('chrome.builtWith', 'Built with')}{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents"
-            className="underline underline-offset-4"
-          >
-            LiveKit Agents
-          </a>
-        </span>
-      </header>
+      {!isConnected && (
+        <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-end p-6 md:flex">
+          <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
+            {t('chrome.builtWith', 'Built with')}{' '}
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://docs.livekit.io/agents"
+              className="underline underline-offset-4"
+            >
+              LiveKit Agents
+            </a>
+          </span>
+        </header>
+      )}
       <div className="group fixed bottom-0 left-1/2 z-50 mb-2 -translate-x-1/2">
         <ThemeToggle className="translate-y-20 transition-transform delay-150 duration-300 group-hover:translate-y-0" />
       </div>

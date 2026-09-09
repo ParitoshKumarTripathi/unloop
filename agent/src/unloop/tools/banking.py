@@ -40,6 +40,8 @@ class ToolError(RuntimeError):
 TOOL_SUBJECTS: dict[str, Subject] = {
     "get_card_status": Subject.CARD,
     "get_online_transaction_status": Subject.ONLINE_TXN,
+    "list_recent_transactions": Subject.TRANSACTION,
+    "get_transaction": Subject.TRANSACTION,
     "get_registered_mobile_status": Subject.MOBILE,
     "get_otp_generation_status": Subject.OTP_GENERATION,
     "get_otp_delivery_status": Subject.OTP_DELIVERY,
@@ -135,6 +137,7 @@ class SupportBackend:
             backend = self.sandbox.get_record(DEMO_CUSTOMER_ID, "banking", "card") or {}
             return {
                 "customer_id": customer_id,
+                "card_id": backend.get("card_id", "CARD-101"),
                 "card_last4": backend.get("last4", "4821"),
                 "card_status": backend.get("status", "ACTIVE"),
             }
@@ -155,6 +158,41 @@ class SupportBackend:
             }
 
         return await self.call("get_online_transaction_status", handler)
+
+    async def list_recent_transactions(
+        self, customer_id: str, limit: int = 5
+    ) -> tuple[ToolResult, FenceDecision]:
+        """List the authenticated customer's recent synthetic transactions."""
+
+        def handler() -> dict[str, Any]:
+            transactions = self.sandbox.list_records(DEMO_CUSTOMER_ID, "banking", "transaction")
+            safe_limit = max(1, min(int(limit), 10))
+            return {
+                "customer_id": customer_id,
+                "transactions": transactions[-safe_limit:],
+                "count": min(len(transactions), safe_limit),
+            }
+
+        return await self.call("list_recent_transactions", handler)
+
+    async def get_transaction(
+        self, customer_id: str, transaction_id: str
+    ) -> tuple[ToolResult, FenceDecision]:
+        """Get one synthetic transaction, accepting IDs such as TXN-501 or spoken 501."""
+
+        def handler() -> dict[str, Any]:
+            match = self.sandbox.get_record_by_identifier(
+                DEMO_CUSTOMER_ID, "banking", "transaction", transaction_id
+            )
+            if match is None:
+                return {
+                    "customer_id": customer_id,
+                    "requested_transaction_id": transaction_id,
+                    "found": False,
+                }
+            return {"customer_id": customer_id, "found": True, **match}
+
+        return await self.call("get_transaction", handler)
 
     async def get_registered_mobile_status(
         self, customer_id: str
@@ -180,11 +218,12 @@ class SupportBackend:
         """Whether the bank actually minted an OTP for the attempted payment."""
 
         def handler() -> dict[str, Any]:
+            record = self.sandbox.get_record(DEMO_CUSTOMER_ID, "banking", "otp") or {}
             return {
                 "customer_id": customer_id,
-                "otp_generation_status": (
-                    self.sandbox.get_record(DEMO_CUSTOMER_ID, "banking", "otp") or {}
-                ).get("generation_status", "SUCCESS"),
+                "otp_event_id": record.get("otp_event_id", "OTP-601"),
+                "transaction_id": record.get("transaction_id", "TXN-501"),
+                "otp_generation_status": record.get("generation_status", "SUCCESS"),
             }
 
         return await self.call("get_otp_generation_status", handler)
@@ -196,6 +235,8 @@ class SupportBackend:
             backend = self.sandbox.get_record(DEMO_CUSTOMER_ID, "banking", "otp") or {}
             return {
                 "customer_id": customer_id,
+                "otp_event_id": backend.get("otp_event_id", "OTP-601"),
+                "transaction_id": backend.get("transaction_id", "TXN-501"),
                 "otp_delivery_status": backend.get("delivery_status", "FAILED"),
                 "otp_delivery_failure_reason": backend.get("failure_reason"),
             }

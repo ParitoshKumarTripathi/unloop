@@ -20,6 +20,10 @@ class HotelAdapter(DomainAdapter):
     escalation_destination = "Hotel partner reconciliation"
     primary_delay_tool = "check_platform_booking"
     tools = (
+        ToolDefinition("list_bookings", Subject.BOOKING, "list the customer's synthetic bookings"),
+        ToolDefinition(
+            "get_booking", Subject.BOOKING, "get a booking by full or spoken synthetic ID"
+        ),
         ToolDefinition(
             "check_platform_booking", Subject.BOOKING, "check the platform booking record"
         ),
@@ -69,9 +73,15 @@ class HotelAdapter(DomainAdapter):
     )
     goals = (
         goal(
+            "view_booking_details",
+            "Retrieve booking details such as ID, dates, room, or guest count",
+            r"\b(?:what|which|when|how many|tell me|show|details?|id|room|guest|check.?in|check.?out)\b.*\b(?:booking|reservation|hotel|guests?)\b",
+            subjects=frozenset({Subject.BOOKING}),
+        ),
+        goal(
             "change_guest_count",
             "Change the guest count on a hotel booking",
-            r"\b(?:guest|people|party size)\b",
+            r"\b(?:change|make|update|increase|decrease|add|remove)\b.*\b(?:guest|people|party size)\b",
             subjects=frozenset({Subject.BOOKING}),
         ),
         goal(
@@ -188,6 +198,10 @@ class HotelAdapter(DomainAdapter):
         ]
 
     async def invoke(self, backend, tool_name: str, **kwargs):
+        if tool_name == "list_bookings":
+            return await backend.list_records(tool_name, "booking")
+        if tool_name == "get_booking":
+            return await backend.get_record(tool_name, "booking", kwargs.get("booking_id", ""))
         if tool_name == "check_platform_booking":
 
             def platform():

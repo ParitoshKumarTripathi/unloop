@@ -30,7 +30,7 @@ class BankingAdapter(DomainAdapter):
         ToolDefinition(
             "get_card_status",
             Subject.CARD,
-            "check whether the card is active",
+            "retrieve the synthetic card ID, safe last four digits, and card status",
             public_name="check_card_status",
         ),
         ToolDefinition(
@@ -38,6 +38,16 @@ class BankingAdapter(DomainAdapter):
             Subject.ONLINE_TXN,
             "check online payments",
             public_name="check_online_transactions",
+        ),
+        ToolDefinition(
+            "list_recent_transactions",
+            Subject.TRANSACTION,
+            "list recent synthetic transactions when the customer asks about transaction history or their latest payment",
+        ),
+        ToolDefinition(
+            "get_transaction",
+            Subject.TRANSACTION,
+            "look up a synthetic transaction by ID, including a spoken numeric ID such as five zero one",
         ),
         ToolDefinition(
             "get_registered_mobile_status",
@@ -74,6 +84,18 @@ class BankingAdapter(DomainAdapter):
     )
     goals = (
         goal(
+            "view_card_details",
+            "Retrieve safe synthetic card details",
+            r"\b(?:what|which|tell me|show|details?|id|last four|ending)\b.*\b(?:card|digits?)\b|\bcard\b.*\b(?:details?|id|last four|ending)\b",
+            subjects=frozenset({Subject.CARD}),
+        ),
+        goal(
+            "view_otp_event_details",
+            "Retrieve synthetic OTP event details",
+            r"\b(?:what|which|tell me|show|details?|id|status)\b.*\b(?:otp|one[- ]time password|code)\b",
+            subjects=frozenset({Subject.OTP_GENERATION, Subject.OTP_DELIVERY}),
+        ),
+        goal(
             "resolve_otp",
             "Resolve a one-time-password delivery problem",
             r"\b(?:otp|one[- ]time password|code)\b",
@@ -87,6 +109,13 @@ class BankingAdapter(DomainAdapter):
                     Subject.SERVICE_HEALTH,
                 }
             ),
+        ),
+        goal(
+            "review_transactions",
+            "Review recent transactions or look up a transaction by ID",
+            r"\b(?:transaction|transactions|payment|payments|charge|charges|purchase|purchases)\b.*\b(?:last|latest|recent|history|status|details?|id|find|look\s*up|check)\b",
+            r"\b(?:last|latest|recent|history|find|look\s*up|check)\b.*\b(?:transaction|transactions|payment|payments|charge|charges|purchase|purchases)\b",
+            subjects=frozenset({Subject.TRANSACTION}),
         ),
         goal(
             "verify_card",
@@ -158,6 +187,12 @@ mind, immediately follow the new goal and stop pursuing the old one.
             "get_online_transaction_status": lambda: backend.get_online_transaction_status(
                 customer_id
             ),
+            "list_recent_transactions": lambda: backend.list_recent_transactions(
+                customer_id, kwargs.get("limit", 5)
+            ),
+            "get_transaction": lambda: backend.get_transaction(
+                customer_id, str(kwargs.get("transaction_id", ""))
+            ),
             "get_registered_mobile_status": lambda: backend.get_registered_mobile_status(
                 customer_id
             ),
@@ -204,6 +239,22 @@ mind, immediately follow the new goal and stop pursuing the old one.
                     target,
                     self.evidence(state, result, f"online payments are {status}", supports=True),
                 )
+        elif tool_name == "list_recent_transactions":
+            transactions = payload.get("transactions", [])
+            state.confirm_fact(
+                "recent_transactions",
+                str(payload.get("count", len(transactions))),
+                detail={"transactions": transactions},
+            )
+        elif tool_name == "get_transaction":
+            transaction_id = str(
+                payload.get("transaction_id") or payload.get("requested_transaction_id", "")
+            )
+            state.confirm_fact(
+                f"transaction_{transaction_id or 'lookup'}",
+                "FOUND" if payload.get("found") else "NOT_FOUND",
+                detail=dict(payload),
+            )
         elif tool_name == "get_registered_mobile_status":
             status = str(payload.get("registered_mobile_status", "")).upper()
             state.confirm_fact("registered_mobile_status", status)
@@ -266,15 +317,46 @@ mind, immediately follow the new goal and stop pursuing the old one.
     def describe(self, result: ToolResult) -> str:
         p = result.payload
         descriptions = {
-            "get_card_status": f"The card status is {p.get('card_status', 'unknown')}.",
+            "get_card_status": (
+                f"Synthetic card {p.get('card_id', 'unknown')} ending in "
+                f"{p.get('card_last4', 'unknown')} is {p.get('card_status', 'unknown')}."
+            ),
             "get_online_transaction_status": f"Online transactions are {p.get('online_transactions', 'unknown')}.",
+            "list_recent_transactions": self._describe_transactions(p),
+            "get_transaction": self._describe_transaction(p),
             "get_registered_mobile_status": f"The registered mobile number is {p.get('registered_mobile_status', 'unknown')}.",
-            "get_otp_generation_status": f"One-time password generation is {p.get('otp_generation_status', 'unknown')}.",
-            "get_otp_delivery_status": f"One-time password delivery is {p.get('otp_delivery_status', 'unknown')}.",
+            "get_otp_generation_status": (
+                f"OTP event {p.get('otp_event_id', 'unknown')} for transaction "
+                f"{p.get('transaction_id', 'unknown')} has generation status "
+                f"{p.get('otp_generation_status', 'unknown')}."
+            ),
+            "get_otp_delivery_status": (
+                f"OTP event {p.get('otp_event_id', 'unknown')} for transaction "
+                f"{p.get('transaction_id', 'unknown')} has delivery status "
+                f"{p.get('otp_delivery_status', 'unknown')}."
+            ),
             "get_service_incidents": f"The {p.get('service', 'service')} is {p.get('status', 'unknown')}.",
             "resend_otp": f"The one-time password was {p.get('action_status', 'not resent').lower()} and delivery is {p.get('otp_delivery_status', 'unknown').lower()}.",
         }
         return descriptions.get(result.tool_name, super().describe(result))
+
+    @staticmethod
+    def _describe_transaction(payload: dict[str, Any]) -> str:
+        if not payload.get("found"):
+            return f"No synthetic transaction matched {payload.get('requested_transaction_id', 'that ID')}."
+        return (
+            f"Transaction {payload.get('transaction_id')} at {payload.get('merchant')} "
+            f"was for {payload.get('amount')} and its status is {payload.get('status')}."
+        )
+
+    @classmethod
+    def _describe_transactions(cls, payload: dict[str, Any]) -> str:
+        transactions = payload.get("transactions") or []
+        if not transactions:
+            return "No recent synthetic transactions were found."
+        return "Recent synthetic transactions: " + " ".join(
+            cls._describe_transaction({"found": True, **item}) for item in transactions
+        )
 
     def recommend_destination(self, state: ResolutionState) -> str:
         return recommend_destination(state)

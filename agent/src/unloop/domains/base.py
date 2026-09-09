@@ -123,10 +123,24 @@ class DomainAdapter(ABC):
         raise NotImplementedError
 
     def describe(self, result: ToolResult) -> str:
+        if result.payload.get("found") is False:
+            return f"No synthetic record matched {result.payload.get('requested_id', 'that ID')}."
+
+        list_values = [value for value in result.payload.values() if isinstance(value, list)]
+        if list_values:
+            records = list_values[0]
+            if not records:
+                return "No matching synthetic records were found."
+            rendered = [
+                "; ".join(f"{key.replace('_', ' ')}={value}" for key, value in record.items())
+                for record in records
+            ]
+            return "Synthetic customer records: " + " | ".join(rendered) + "."
+
         parts = [
             f"{key.replace('_', ' ')} is {value}"
             for key, value in result.payload.items()
-            if key != "customer_id" and value not in (None, "")
+            if key not in {"customer_id", "found"} and value not in (None, "")
         ]
         return ("; ".join(parts) or "The check completed") + "."
 
