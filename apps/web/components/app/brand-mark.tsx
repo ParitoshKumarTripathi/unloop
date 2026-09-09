@@ -17,33 +17,15 @@ export function BrandMark({
       aria-label="UNLOOP"
     >
       <svg
-        viewBox="0 0 48 48"
+        viewBox="0 0 64 64"
         aria-hidden="true"
         className={cn('shrink-0', compact ? 'size-8' : 'size-14')}
       >
-        <path
-          d="M35.8 12.8A17 17 0 1 0 39.6 31"
-          fill="none"
-          stroke="#0ea5e9"
-          strokeWidth="5"
-          strokeLinecap="round"
-        />
-        <path
-          d="m34 7 3 7.5 7.5-3"
-          fill="none"
-          stroke="#10b981"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M14 24h5l2.5-6 5 12 2.5-6h5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <rect x="8" y="21" width="7" height="22" rx="3.5" fill="#0ea5e9" />
+        <rect x="19" y="5" width="7" height="54" rx="3.5" fill="#06b6d4" />
+        <rect x="30" y="13" width="7" height="38" rx="3.5" fill="#14b8a6" />
+        <rect x="41" y="21" width="7" height="22" rx="3.5" fill="#10b981" />
+        <rect x="52" y="17" width="7" height="30" rx="3.5" fill="#22c55e" />
       </svg>
       <div className="min-w-0 text-left">
         <div
@@ -56,7 +38,7 @@ export function BrandMark({
         </div>
         {!compact && (
           <div className="mt-1 font-mono text-[8px] font-bold tracking-[0.16em] text-sky-600 uppercase sm:text-[9px] sm:tracking-[0.28em] dark:text-sky-400">
-            {t('brand.tagline', 'Resolve. Adapt. Move forward.')}
+            {t('brand.tagline', 'Natural Customer Support')}
           </div>
         )}
       </div>

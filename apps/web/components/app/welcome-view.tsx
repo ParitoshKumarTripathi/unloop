@@ -1,3 +1,11 @@
+import {
+  Building2,
+  Landmark,
+  PhoneCall,
+  Scissors,
+  ShoppingBag,
+  UtensilsCrossed,
+} from 'lucide-react';
 import { BrandMark } from '@/components/app/brand-mark';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
@@ -15,11 +23,11 @@ interface WelcomeViewProps {
 }
 
 const SUPPORT_DOMAINS = [
-  ['banking', 'Banking', 'Account and payment support'],
-  ['ecommerce', 'E-commerce', 'Order, return, and refund support'],
-  ['restaurant', 'Restaurant', 'Existing reservation support'],
-  ['salon', 'Salon', 'Existing appointment support'],
-  ['hotel', 'Hotel', 'Existing booking support'],
+  ['banking', 'Banking', 'Account and payment support', Landmark],
+  ['ecommerce', 'E-commerce', 'Order and refund support', ShoppingBag],
+  ['restaurant', 'Restaurant', 'Existing reservation support', UtensilsCrossed],
+  ['salon', 'Salon', 'Existing appointment support', Scissors],
+  ['hotel', 'Hotel', 'Existing booking support', Building2],
 ] as const;
 
 const SUPPORT_LANGUAGES = [
@@ -66,11 +74,8 @@ export const WelcomeView = ({
       <section className="bg-background mx-auto flex w-full max-w-5xl min-w-0 flex-col items-center justify-center text-center">
         <BrandMark className="mb-5" />
 
-        <p className="text-muted-foreground font-mono text-[11px] tracking-[0.24em] uppercase">
-          {t('brand.kicker', 'Resolution voice agent')}
-        </p>
-        <h1 className="text-foreground mt-2 max-w-2xl text-2xl font-semibold tracking-tight md:text-4xl">
-          {t('welcome.title', 'Customer support that changes strategy when it is wrong.')}
+        <h1 className="text-foreground max-w-2xl text-2xl font-semibold tracking-tight md:text-4xl">
+          {t('welcome.title', 'Customer support that adapts on the fly.')}
         </h1>
         <p className="text-muted-foreground mt-3 max-w-2xl text-sm leading-6 md:text-base">
           {t(
@@ -84,7 +89,7 @@ export const WelcomeView = ({
             {t('welcome.domain', 'Choose support domain')}
           </div>
           <div className="grid w-full min-w-0 grid-cols-2 gap-2 lg:grid-cols-5">
-            {SUPPORT_DOMAINS.map(([id, label, description]) => {
+            {SUPPORT_DOMAINS.map(([id, label, description, Icon]) => {
               const active = id === selectedDomain;
               return (
                 <button
@@ -99,7 +104,10 @@ export const WelcomeView = ({
                       : 'border-border bg-card hover:border-foreground/40 hover:bg-muted/50',
                   ].join(' ')}
                 >
-                  <span className="block text-sm font-bold">{scenarioText(id, '', label)}</span>
+                  <span className="flex items-center gap-2 text-sm font-bold">
+                    <Icon className="size-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+                    {scenarioText(id, '', label)}
+                  </span>
                   <span className="mt-1.5 block text-[10px] leading-4 wrap-break-word opacity-70 md:text-[11px]">
                     {scenarioText(id, 'Description', description)}
                   </span>
@@ -170,6 +178,7 @@ export const WelcomeView = ({
           onClick={onStartCall}
           className="mt-7 w-full max-w-72 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
         >
+          <PhoneCall className="size-4" aria-hidden="true" />
           {startButtonText}: {selected && scenarioText(selected[0], '', selected[1])} ·{' '}
           {t(
             `language.${selectedLanguage}`,

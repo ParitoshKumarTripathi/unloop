@@ -6,13 +6,13 @@ export type UiLanguage = 'english' | 'hindi';
 
 const HI: Record<string, string> = {
   'brand.kicker': 'अनलूप समाधान एजेंट',
-  'brand.tagline': 'सुलझाएँ। बदलें। आगे बढ़ें।',
+  'brand.tagline': 'स्वाभाविक ग्राहक सहायता',
   'chrome.builtWith': 'इसके साथ बनाया गया',
   'theme.toggle': 'रंग योजना बदलें',
   'theme.dark': 'गहरी रंग योजना चालू करें',
   'theme.light': 'हल्की रंग योजना चालू करें',
   'theme.system': 'सिस्टम की रंग योजना अपनाएँ',
-  'welcome.title': 'ग्राहक सहायता जो गलती होने पर अपनी रणनीति बदलती है।',
+  'welcome.title': 'ग्राहक सहायता जो तुरंत परिस्थिति के अनुसार ढलती है।',
   'welcome.description':
     'सहायता सेवा चुनें, कॉल शुरू करें और अपनी समस्या स्वाभाविक रूप से बताएँ। एजेंट जाँच कर सकता है, कार्रवाई कर सकता है, सुधार मिलने पर तरीका बदल सकता है और पूरी जानकारी के साथ मामला आगे भेज सकता है।',
   'welcome.domain': 'सहायता क्षेत्र चुनें',
@@ -28,7 +28,7 @@ const HI: Record<string, string> = {
   'scenario.bankingDescription': 'खाता और भुगतान सहायता',
   'scenario.ecommerce': 'ई-कॉमर्स',
   'scenario.ecommerceShort': 'रिफंड नहीं मिला',
-  'scenario.ecommerceDescription': 'ऑर्डर, रिटर्न और रिफंड सहायता',
+  'scenario.ecommerceDescription': 'ऑर्डर और रिफंड सहायता',
   'scenario.restaurant': 'रेस्टोरेंट',
   'scenario.restaurantShort': 'रिजर्वेशन नहीं मिला',
   'scenario.restaurantDescription': 'मौजूदा रिजर्वेशन सहायता',

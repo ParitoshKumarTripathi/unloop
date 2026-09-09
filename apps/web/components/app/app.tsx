@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { TokenSource } from 'livekit-client';
-import { useSession } from '@livekit/components-react';
+import { useSession, useSessionContext } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
@@ -25,10 +25,11 @@ function AppSetup() {
 
 function LocalizedChrome() {
   const { t } = useI18n();
+  const { isConnected } = useSessionContext();
   return (
     <>
       <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-        <BrandMark compact />
+        {isConnected ? <BrandMark compact /> : <div aria-hidden="true" />}
         <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
           {t('chrome.builtWith', 'Built with')}{' '}
           <a
