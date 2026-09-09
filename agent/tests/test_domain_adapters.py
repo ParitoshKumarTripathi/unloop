@@ -16,9 +16,15 @@ def test_livekit_tool_surface_is_limited_to_selected_adapter() -> None:
     names = {tool.info.name for tool in agent.tools}
 
     assert names == {
+        "lookup_customer",
         "check_platform_booking",
         "check_hotel_record",
         "reconcile_hotel_booking",
+        "check_hotel_availability",
+        "change_hotel_dates",
+        "change_hotel_guest_count",
+        "cancel_hotel_booking",
+        "rebook_hotel_booking",
         "escalate_to_human",
     }
 
@@ -46,6 +52,16 @@ async def test_ecommerce_correction_fences_inflight_refund_result() -> None:
 
 async def test_restaurant_cross_system_mismatch_changes_shared_strategy_and_rebooks() -> None:
     engine = ResolutionEngine(AppConfig(), domain_id="restaurant")
+    engine.sandbox.update_record(
+        "DEMO-1001",
+        "restaurant",
+        "reservation",
+        {"partner_status": "MISSING"},
+        action="TEST_SETUP",
+    )
+    await engine.on_user_transcript(
+        "The restaurant cannot find my reservation even though I have a confirmation."
+    )
 
     platform = await engine.run_tool("check_platform_reservation")
     restaurant = await engine.run_tool("check_restaurant_record")

@@ -132,7 +132,9 @@ async def test_caller_and_backend_disagreement_is_recorded_not_silently_resolved
     the customer is wrong is the behaviour this product exists to eliminate.
     """
     state, backend = make_state()
-    backend.fixture.backend_state["card_status"] = "BLOCKED"
+    backend.sandbox.update_record(
+        "DEMO-1001", "banking", "card", {"status": "BLOCKED"}, action="TEST_SETUP"
+    )
     await backend.get_card_status("demo_customer_001")
 
     utterance = "My card is not blocked, I used it five minutes ago."

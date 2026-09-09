@@ -7,7 +7,7 @@ from typing import ClassVar
 from ..resolution.hypotheses import Hypothesis
 from ..resolution.state import ResolutionState
 from ..tools.types import Subject, ToolResult
-from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, rx
+from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, goal, rx
 
 
 class EcommerceAdapter(DomainAdapter):
@@ -16,7 +16,7 @@ class EcommerceAdapter(DomainAdapter):
     default_fixture = "ecommerce_refund_missing"
     issue_type = "REFUND_NOT_RECEIVED"
     issue_summary = "Refund is marked processed but has not reached the customer"
-    opening_line = "I can help trace that refund. When were you told it had been processed?"
+    opening_line = "E-commerce support. How can I help you today?"
     escalation_destination = "Refund reconciliation team"
     primary_delay_tool = "check_refund_record"
     tools = (
@@ -32,8 +32,51 @@ class EcommerceAdapter(DomainAdapter):
             "reissue a stalled refund when evidence supports it",
             True,
             requires_hypothesis="PAYMENT_RAIL_DELAY",
+            goal_ids=frozenset({"resolve_refund"}),
+        ),
+        ToolDefinition("check_order_status", Subject.ORDER, "verify the existing order status"),
+        ToolDefinition(
+            "cancel_order",
+            Subject.ORDER,
+            "cancel an eligible existing order",
+            True,
+            goal_ids=frozenset({"cancel_order"}),
+        ),
+        ToolDefinition(
+            "request_return",
+            Subject.ORDER,
+            "open a return for an eligible delivered order",
+            True,
+            goal_ids=frozenset({"return_order"}),
         ),
     )
+    goals = (
+        goal(
+            "cancel_order",
+            "Cancel an existing order",
+            r"\bcancel\b.*\border\b",
+            subjects=frozenset({Subject.ORDER}),
+        ),
+        goal(
+            "return_order",
+            "Return an existing order",
+            r"\b(?:return|send back|wrong item|damaged)\b",
+            subjects=frozenset({Subject.ORDER, Subject.REFUND}),
+        ),
+        goal(
+            "track_order",
+            "Find or verify an existing order",
+            r"\b(?:track|where|status|find|verify|check)\b.*\border\b",
+            subjects=frozenset({Subject.ORDER}),
+        ),
+        goal(
+            "resolve_refund",
+            "Investigate or resolve an existing refund",
+            r"\b(?:refund|money back|credited)\b",
+            subjects=frozenset({Subject.REFUND, Subject.PAYMENT_RAIL}),
+        ),
+    )
+    diagnostic_goal_ids = frozenset({"resolve_refund"})
     hypothesis_subjects: ClassVar[dict[str, frozenset[Subject]]] = {
         "REFUND_ALREADY_RECEIVED": frozenset({Subject.REFUND}),
         "REFUND_NOT_SUBMITTED": frozenset({Subject.REFUND}),
@@ -113,6 +156,55 @@ class EcommerceAdapter(DomainAdapter):
             ),
         ]
 
+    async def invoke(self, backend, tool_name: str, **kwargs):
+        if tool_name == "check_order_status":
+            return await backend.inspect_record(tool_name, "order")
+        if tool_name == "check_refund_record":
+
+            def refund_record():
+                record = backend.sandbox.get_record(backend.customer_id, self.domain_id, "refund")
+                return {
+                    "customer_id": backend.customer_id,
+                    "merchant_refund_status": record.get("processing_status", "UNKNOWN"),
+                    **record,
+                }
+
+            return await backend.call(tool_name, refund_record)
+        if tool_name == "trace_refund_payment":
+
+            def refund_trace():
+                record = backend.sandbox.get_record(backend.customer_id, self.domain_id, "refund")
+                return {
+                    "customer_id": backend.customer_id,
+                    "rail_status": record.get("settlement_status", "UNKNOWN"),
+                    "last_stage": "settlement",
+                    **record,
+                }
+
+            return await backend.call(tool_name, refund_trace)
+        if tool_name == "reissue_refund":
+
+            def reissue():
+                record = backend.sandbox.update_record(
+                    backend.customer_id,
+                    self.domain_id,
+                    "refund",
+                    {"processing_status": "REISSUED", "settlement_status": "PROCESSING"},
+                    action=tool_name,
+                )
+                return {"customer_id": backend.customer_id, "action_status": "REISSUED", **record}
+
+            return await backend.call(tool_name, reissue, mutates=True)
+        if tool_name == "cancel_order":
+            return await backend.update_record(
+                tool_name, "order", {"status": "CANCELLED"}, action_status="CANCELLED"
+            )
+        if tool_name == "request_return":
+            return await backend.update_record(
+                tool_name, "order", {"return_status": "REQUESTED"}, action_status="RETURN_REQUESTED"
+            )
+        return await super().invoke(backend, tool_name, **kwargs)
+
     def absorb(self, state: ResolutionState, result: ToolResult) -> None:
         p = result.payload
         if result.tool_name == "check_refund_record":
@@ -148,6 +240,10 @@ class EcommerceAdapter(DomainAdapter):
                 hypothesis = state.get_hypothesis("PAYMENT_RAIL_DELAY")
                 if hypothesis and not hypothesis.is_rejected:
                     hypothesis.resolve(turn=state.turn)
+        elif result.tool_name in {"cancel_order", "request_return"}:
+            state.confirm_fact(
+                "order_resolution", str(p.get("action_status", "UPDATED")), detail=dict(p)
+            )
 
     def describe(self, result: ToolResult) -> str:
         p = result.payload

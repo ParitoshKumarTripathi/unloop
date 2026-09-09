@@ -15,6 +15,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller';
+import { useI18n } from '@/lib/i18n';
 
 /**
  * Props for the AgentChatTranscript component.
@@ -94,6 +95,7 @@ export function AgentChatTranscript({
   className,
   ...props
 }: AgentChatTranscriptProps) {
+  const { t, isHindi } = useI18n();
   return (
     <MessageScrollerProvider
       autoScroll={autoScroll}
@@ -112,7 +114,11 @@ export function AgentChatTranscript({
               const { id, timestamp, from, message } = receivedMessage;
               const time = new Date(timestamp);
               const isUser = from?.isLocal;
-              const locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
+              const locale = isHindi
+                ? 'hi-IN'
+                : typeof navigator !== 'undefined'
+                  ? navigator.language
+                  : 'en-US';
               const title = time.toLocaleTimeString(locale, { timeStyle: 'full' });
               let _scrollAnchor = false;
 
@@ -149,7 +155,9 @@ export function AgentChatTranscript({
                   <MarkerIcon>
                     <AgentChatIndicator size="sm" />
                   </MarkerIcon>
-                  <MarkerContent className="shimmer">Thinking...</MarkerContent>
+                  <MarkerContent className="shimmer">
+                    {t('session.thinking', 'Thinking...')}
+                  </MarkerContent>
                 </Marker>
               </MessageScrollerItem>
             )}

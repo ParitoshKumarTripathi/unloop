@@ -56,13 +56,22 @@ from .config import AppConfig, load_dotenv_if_present, write_rime_config_artifac
 from .domains import available_domains, get_domain
 from .domains.base import DomainAdapter
 from .fixtures.loader import LatencyTable, available_fixtures, load_fixture
+from .language import (
+    LanguageProfile,
+    augment_hypotheses_for_language,
+    available_languages,
+    configure_session_language,
+    get_language,
+)
 from .observability.events import EventType
 from .prompts import branch_phrase, build_instructions, correction_acknowledgement
 from .resolution.corrections import CorrectionExtractor, CorrectionReconciler
+from .resolution.goals import GoalRouter
 from .resolution.loop_detector import LoopDetector
 from .resolution.output_guard import OutputGuard
 from .resolution.stale_fence import SpeechTicket, StaleFence
 from .resolution.state import EscalationStatus, ResolutionState, SpeechRecord
+from .sandbox import DEMO_CUSTOMER_ID, SyntheticSupportSandbox
 from .tools.escalation import build_handoff_packet, mark_escalated
 
 logger = logging.getLogger("unloop")
@@ -82,13 +91,15 @@ class UnloopAgent(Agent):
         self.engine = engine
         super().__init__(
             instructions=build_instructions(
-                engine.state, system_prompt=engine.adapter.instructions()
+                engine.state,
+                system_prompt=engine.adapter.instructions(),
+                language=engine.language,
             )
         )
         # Decorated methods are discovered automatically by LiveKit. Keep the
         # proven explicit schemas, but expose only this adapter's operations to the
         # model so a hotel call cannot drift into restaurant or shopping behavior.
-        allowed = {tool.exposed_name for tool in engine.adapter.tools} | {"escalate_to_human"}
+        allowed = {tool.exposed_name for tool in engine.adapter.all_tools} | {"escalate_to_human"}
         self._tools = [tool for tool in self._tools if tool.info.name in allowed]
         self._chat_ctx = self._chat_ctx.copy(tools=self._tools)
 
@@ -148,6 +159,12 @@ class UnloopAgent(Agent):
                 yield verdict.replacement
 
     # -- tools ---------------------------------------------------------------
+
+    @function_tool
+    async def lookup_customer(self, context: RunContext, identifier: str = "DEMO-1001") -> str:
+        """Verify a synthetic customer using DEMO-1001 or a fake reservation/account ID."""
+        return await self.engine.run_tool("lookup_customer", identifier=identifier)
+
     #
     # Docstrings are the model's tool descriptions, so they are written for the
     # model: what the tool establishes, and what it does not.
@@ -198,6 +215,11 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("get_service_incidents", service=service)
 
     @function_tool
+    async def resend_otp(self, context: RunContext) -> str:
+        """Resend an OTP only after a delivery failure is confirmed; never request the code."""
+        return await self.engine.run_tool("resend_otp")
+
+    @function_tool
     async def check_refund_record(self, context: RunContext) -> str:
         """Check the merchant's record for an existing refund support case."""
         return await self.engine.run_tool("check_refund_record")
@@ -213,14 +235,70 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("reissue_refund")
 
     @function_tool
+    async def check_order_status(self, context: RunContext) -> str:
+        """Verify the status of the customer's existing order."""
+        return await self.engine.run_tool("check_order_status")
+
+    @function_tool
+    async def cancel_order(self, context: RunContext) -> str:
+        """Cancel the customer's existing order when eligible."""
+        return await self.engine.run_tool("cancel_order")
+
+    @function_tool
+    async def request_return(self, context: RunContext) -> str:
+        """Open a return for the customer's existing delivered order."""
+        return await self.engine.run_tool("request_return")
+
+    @function_tool
     async def check_platform_reservation(self, context: RunContext) -> str:
         """Check the existing restaurant reservation confirmation."""
         return await self.engine.run_tool("check_platform_reservation")
 
     @function_tool
+    async def list_reservations(self, context: RunContext) -> str:
+        """List the authenticated synthetic customer's restaurant reservations."""
+        return await self.engine.run_tool("list_reservations")
+
+    @function_tool
+    async def get_reservation(self, context: RunContext, reservation_id: str) -> str:
+        """Get an existing restaurant reservation by its synthetic identifier."""
+        return await self.engine.run_tool("get_reservation", reservation_id=reservation_id)
+
+    @function_tool
+    async def create_reservation(
+        self, context: RunContext, restaurant: str, date: str, time: str, party_size: int
+    ) -> str:
+        """Create a corrective reservation, not a restaurant discovery request."""
+        return await self.engine.run_tool(
+            "create_reservation", restaurant=restaurant, date=date, time=time, party_size=party_size
+        )
+
+    @function_tool
     async def check_restaurant_record(self, context: RunContext) -> str:
         """Check whether the restaurant received the confirmed reservation."""
         return await self.engine.run_tool("check_restaurant_record")
+
+    @function_tool
+    async def check_restaurant_availability(self, context: RunContext, requested_time: str) -> str:
+        """Check availability at a requested time for the customer's existing reservation."""
+        return await self.engine.run_tool(
+            "check_restaurant_availability", requested_time=requested_time
+        )
+
+    @function_tool
+    async def reschedule_restaurant_reservation(self, context: RunContext, new_time: str) -> str:
+        """Move the existing reservation after confirming the desired time."""
+        return await self.engine.run_tool("reschedule_restaurant_reservation", new_time=new_time)
+
+    @function_tool
+    async def change_restaurant_party_size(self, context: RunContext, party_size: int) -> str:
+        """Change only the party size on the existing reservation."""
+        return await self.engine.run_tool("change_restaurant_party_size", party_size=party_size)
+
+    @function_tool
+    async def cancel_restaurant_reservation(self, context: RunContext) -> str:
+        """Cancel the customer's existing reservation."""
+        return await self.engine.run_tool("cancel_restaurant_reservation")
 
     @function_tool
     async def rebook_reservation(self, context: RunContext) -> str:
@@ -238,9 +316,29 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("check_appointment_history")
 
     @function_tool
-    async def reschedule_appointment(self, context: RunContext) -> str:
+    async def reschedule_appointment(self, context: RunContext, new_time: str = "") -> str:
         """Correctively reschedule the affected appointment."""
-        return await self.engine.run_tool("reschedule_appointment")
+        return await self.engine.run_tool("reschedule_appointment", new_time=new_time or None)
+
+    @function_tool
+    async def check_salon_availability(self, context: RunContext, requested_time: str) -> str:
+        """Check salon availability for a requested corrective appointment time."""
+        return await self.engine.run_tool("check_salon_availability", requested_time=requested_time)
+
+    @function_tool
+    async def change_appointment_service(self, context: RunContext, service: str) -> str:
+        """Change the service on the customer's existing appointment."""
+        return await self.engine.run_tool("change_appointment_service", service=service)
+
+    @function_tool
+    async def cancel_appointment(self, context: RunContext) -> str:
+        """Cancel the customer's existing salon appointment."""
+        return await self.engine.run_tool("cancel_appointment")
+
+    @function_tool
+    async def rebook_appointment(self, context: RunContext, new_time: str) -> str:
+        """Rebook an affected appointment at a requested time."""
+        return await self.engine.run_tool("rebook_appointment", new_time=new_time)
 
     @function_tool
     async def check_platform_booking(self, context: RunContext) -> str:
@@ -256,6 +354,39 @@ class UnloopAgent(Agent):
     async def reconcile_hotel_booking(self, context: RunContext) -> str:
         """Push a corrective reconciliation for the affected hotel booking."""
         return await self.engine.run_tool("reconcile_hotel_booking")
+
+    @function_tool
+    async def check_hotel_availability(
+        self, context: RunContext, check_in: str, check_out: str
+    ) -> str:
+        """Check availability for alternate dates on the customer's existing stay."""
+        return await self.engine.run_tool(
+            "check_hotel_availability", check_in=check_in, check_out=check_out
+        )
+
+    @function_tool
+    async def change_hotel_dates(self, context: RunContext, check_in: str, check_out: str) -> str:
+        """Change dates on the customer's existing hotel booking."""
+        return await self.engine.run_tool(
+            "change_hotel_dates", check_in=check_in, check_out=check_out
+        )
+
+    @function_tool
+    async def change_hotel_guest_count(self, context: RunContext, guest_count: int) -> str:
+        """Change the guest count on the customer's existing hotel booking."""
+        return await self.engine.run_tool("change_hotel_guest_count", guest_count=guest_count)
+
+    @function_tool
+    async def cancel_hotel_booking(self, context: RunContext) -> str:
+        """Cancel the customer's existing hotel booking."""
+        return await self.engine.run_tool("cancel_hotel_booking")
+
+    @function_tool
+    async def rebook_hotel_booking(self, context: RunContext, check_in: str, check_out: str) -> str:
+        """Rebook an affected hotel stay for requested dates."""
+        return await self.engine.run_tool(
+            "rebook_hotel_booking", check_in=check_in, check_out=check_out
+        )
 
     @function_tool
     async def escalate_to_human(self, context: RunContext, reason: str) -> str:
@@ -298,21 +429,37 @@ class ResolutionEngine:
         fixture_id: str | None = None,
         *,
         domain_id: str | None = None,
+        language_id: str | None = None,
+        sandbox: SyntheticSupportSandbox | None = None,
     ) -> None:
-        self.config = config
+        self.language: LanguageProfile = get_language(language_id)
+        self.config = (
+            configure_session_language(config, self.language) if language_id is not None else config
+        )
         requested_adapter = get_domain(domain_id)
         selected_fixture = fixture_id or (
             requested_adapter.default_fixture if domain_id else config.default_fixture
         )
         self.fixture = load_fixture(selected_fixture)
         self.adapter: DomainAdapter = get_domain(domain_id or self.fixture.domain)
+        if self.fixture.domain != self.adapter.domain_id:
+            logger.warning(
+                "fixture %s belongs to %s, using the %s domain default instead",
+                self.fixture.fixture_id,
+                self.fixture.domain,
+                self.adapter.domain_id,
+            )
+            self.fixture = load_fixture(self.adapter.default_fixture)
+        self.sandbox = sandbox or SyntheticSupportSandbox()
         self.state = ResolutionState(
-            issue_type=self.adapter.issue_type,
-            issue_summary=self.adapter.issue_summary,
-            hypotheses=self.adapter.build_hypotheses(),
+            issue_type=f"{self.adapter.domain_id.upper()}_SUPPORT",
+            issue_summary=f"{self.adapter.label} request — awaiting customer intent",
+            hypotheses=[],
         )
         self.latency = LatencyTable(self.fixture.tool_delays_ms)
-        self.backend = self.adapter.create_backend(self.fixture, self.state, self.latency)
+        self.backend = self.adapter.create_backend(
+            self.fixture, self.state, self.latency, self.sandbox
+        )
         self.fence = StaleFence(self.state)
         self.guard = OutputGuard(
             self.state,
@@ -320,6 +467,7 @@ class ResolutionEngine:
             remediation_actions=self.adapter.remediation_actions,
         )
         self.loop_detector = LoopDetector(self.state)
+        self.goal_router = GoalRouter(self.adapter.goals)
         self.extractor = CorrectionExtractor(
             denials=self.adapter.denial_rules,
             evidence_patterns=self.adapter.evidence_patterns,
@@ -373,10 +521,20 @@ class ResolutionEngine:
         a model that ignores the instruction cannot quote a superseded fact as
         current — the fence has already relabelled it.
         """
-        definitions = {tool.name: tool for tool in self.adapter.tools}
+        definitions = {tool.name: tool for tool in self.adapter.all_tools}
         definition = definitions.get(tool_name)
         if definition is None:
             return f"That operation is not available for this {self.adapter.label.lower()} support case."
+        current_goal = self.state.current_goal
+        if (
+            definition.goal_ids
+            and current_goal is not None
+            and current_goal.id not in definition.goal_ids
+        ):
+            return (
+                "That operation belongs to the customer's previous request and is no longer available. "
+                f"Continue with the current goal: {current_goal.label}."
+            )
         if definition.corrective_action and definition.requires_hypothesis:
             hypothesis = self.state.get_hypothesis(definition.requires_hypothesis)
             if hypothesis is None or hypothesis.status.value != "SUPPORTED":
@@ -431,6 +589,7 @@ class ResolutionEngine:
                     text=text,
                     asserted_hypotheses=result.asserted_hypotheses,
                     depends_on=result.depends_on,
+                    goal_id=ticket.goal_id,
                 )
                 decision = self.fence.authorize_speech(probe)
                 if not decision.allowed:
@@ -463,7 +622,7 @@ class ResolutionEngine:
         ]
         label = rejected[0] if rejected else "that"
         next_step = branch_phrase(self.loop_detector.next_branch(), self.adapter.branch_phrases)
-        return " " + correction_acknowledgement(label, next_step)
+        return " " + correction_acknowledgement(label, next_step, language=self.language)
 
     # -- transcript ----------------------------------------------------------
 
@@ -478,9 +637,28 @@ class ResolutionEngine:
         state.turn += 1
         state.last_user_intent = transcript[:200]
 
+        # User speech, never the fixture, decides whether diagnostic hypotheses
+        # belong in the active state for this turn.
+        detected_goal = self.goal_router.detect(transcript)
+        if detected_goal is not None:
+            if detected_goal.id in self.adapter.diagnostic_goal_ids:
+                if not state.hypotheses:
+                    for hypothesis in augment_hypotheses_for_language(
+                        self.adapter.build_hypotheses(), self.language
+                    ):
+                        state.add_hypothesis(hypothesis)
+            elif state.current_goal is None or state.current_goal.id != detected_goal.id:
+                state.hypotheses.clear()
+                state.loop_score = 0
+
         extractions = self.extractor.extract(transcript, state)
         if extractions:
             self.reconciler.apply(transcript, extractions)
+
+        if detected_goal is not None:
+            changed = state.set_current_goal(detected_goal, bump=not bool(extractions))
+            if changed:
+                state.loop_score = 0
 
         self.loop_detector.note_turn()
         assessment = self.loop_detector.assess()
@@ -497,7 +675,11 @@ class ResolutionEngine:
 
         if self.agent is not None:
             await self.agent.update_instructions(
-                build_instructions(state, system_prompt=self.adapter.instructions())
+                build_instructions(
+                    state,
+                    system_prompt=self.adapter.instructions(),
+                    language=self.language,
+                )
             )
         await self.publish_state()
 
@@ -510,7 +692,7 @@ class ResolutionEngine:
         )
 
         case_result, _ = await self.backend.create_support_case(
-            self.fixture.customer_id,
+            DEMO_CUSTOMER_ID,
             summary=state.issue_summary,
             evidence=packet.to_dict(),
         )
@@ -544,11 +726,14 @@ class ResolutionEngine:
                 "tool_delays_ms": self.latency.snapshot(),
                 "available": available_fixtures(self.adapter.domain_id),
                 "domains": available_domains(),
+                "languages": available_languages(),
+                "language": self.language.id,
             },
             "loop": {"score": self.state.loop_score, "strategy": self.state.current_strategy},
             "handoff": build_handoff_packet(
                 self.state, destination_resolver=self.adapter.recommend_destination
             ).to_dict(),
+            "sandbox": self.sandbox.snapshot(DEMO_CUSTOMER_ID, self.adapter.domain_id),
         }
         try:
             await self.room.local_participant.publish_data(
@@ -571,6 +756,9 @@ class ResolutionEngine:
             "model": rime_config.model,
             "speaker": rime_config.speaker,
             "language": rime_config.language,
+            "mode": self.language.id,
+            "label": self.language.label,
+            "stt_language": self.config.stt.language,
             "transport": rime_config.transport,
             "base_url": rime_config.base_url,
             "resolved_endpoint": rime_config.resolved_endpoint(),
@@ -595,6 +783,9 @@ class ResolutionEngine:
             self.backend.set_mock_tool_delay(tool, delay)
         elif action == "clear_delays":
             self.latency.clear()
+        elif action == "reset_demo_data":
+            self.sandbox.reset_demo_data()
+            self.spawn(self.publish_state())
 
 
 # ---------------------------------------------------------------------------
@@ -701,6 +892,7 @@ def attach_instrumentation(session: AgentSession, engine: ResolutionEngine) -> N
             state_version=state.state_version,
             text="",
             intent=ev.source,
+            goal_id=state.current_goal.id if state.current_goal else None,
         )
         engine._tickets[speech_id] = ticket
         state.register_speech(
@@ -819,7 +1011,9 @@ def _split_sentence(buffer: str) -> tuple[str | None, str]:
     clean first sentence starts synthesising while the rest is still being generated.
     """
     for index, char in enumerate(buffer):
-        if char in ".!?":
+        # Hindi commonly uses the danda as its sentence terminator. Treating it as
+        # a boundary preserves the same sentence-level guard and streaming latency.
+        if char in ".!?।":
             following = buffer[index + 1 : index + 2]
             if following in ("", " ", "\n", '"', "'"):
                 return buffer[: index + 1], buffer[index + 1 :]
@@ -843,13 +1037,33 @@ async def unloop_session(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
 
     domain_id: str | None = None
+    language_id: str | None = None
+    fixture_id: str | None = None
     try:
         dispatch_metadata = json.loads(ctx.job.metadata or "{}")
         domain_id = str(dispatch_metadata.get("domain") or "") or None
+        language_id = str(dispatch_metadata.get("language") or "") or None
+        fixture_id = str(dispatch_metadata.get("fixture") or "") or None
     except (TypeError, ValueError):
         logger.warning("ignoring invalid agent dispatch metadata")
 
-    engine = ResolutionEngine(config, domain_id=domain_id)
+    sandbox = SyntheticSupportSandbox(config.artifacts_dir / "synthetic_support.sqlite3")
+    engine = ResolutionEngine(
+        config,
+        fixture_id=fixture_id,
+        domain_id=domain_id,
+        language_id=language_id,
+        sandbox=sandbox,
+    )
+    config = engine.config
+    session_problems = config.rime.validate()
+    if session_problems:
+        for problem in session_problems:
+            logger.error("Rime session language configuration problem: %s", problem)
+        raise RuntimeError(
+            f"refusing to start with an invalid Rime session configuration: {session_problems}"
+        )
+
     engine.room = ctx.room
 
     try:
@@ -888,7 +1102,7 @@ async def unloop_session(ctx: JobContext) -> None:
     )
     await ctx.connect()
     await engine.publish_state()
-    await session.say(engine.adapter.opening_line)
+    await session.say(engine.language.opening_line or engine.adapter.opening_line)
 
 
 if __name__ == "__main__":

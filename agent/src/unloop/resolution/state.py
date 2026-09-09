@@ -21,6 +21,7 @@ from typing import Any
 
 from ..observability.events import EventRecorder, EventType
 from ..tools.types import HeardStatus, PendingToolCall, Subject, ToolResult
+from .goals import SupportGoal
 from .hypotheses import Evidence, EvidenceSource, Hypothesis, HypothesisStatus
 
 
@@ -176,6 +177,8 @@ class ResolutionState:
 
         self.issue_type = issue_type
         self.issue_summary = issue_summary
+        self.current_goal: SupportGoal | None = None
+        self.goal_history: list[SupportGoal] = []
 
         self.confirmed_facts: list[Fact] = []
         self.user_corrections: list[Correction] = []
@@ -239,6 +242,44 @@ class ResolutionState:
             if bump.to_version > version:
                 invalidated |= bump.invalidated_subjects
         return invalidated
+
+    def set_current_goal(self, goal: SupportGoal, *, bump: bool = True) -> bool:
+        """Set or replace the user-owned goal and invalidate obsolete work."""
+        previous = self.current_goal
+        if (
+            previous is not None
+            and previous.id == goal.id
+            and previous.parameters == goal.parameters
+        ):
+            return False
+        invalidates = set(goal.subjects)
+        if previous is not None:
+            invalidates |= set(previous.subjects)
+        before = self.state_version
+        if bump:
+            self.bump_version(
+                f"support goal changed to {goal.id}",
+                invalidates=invalidates,
+            )
+        elif self.version_log:
+            # One final transcript is one atomic state transition. If it both
+            # corrects a belief and changes the requested outcome, enrich the bump
+            # already created by the correction rather than incrementing twice.
+            self.version_log[-1].invalidated_subjects |= invalidates
+        self.current_goal = goal
+        self.goal_history.append(goal)
+        self.issue_type = goal.id.upper()
+        self.issue_summary = goal.label
+        self.set_strategy(f"handle_{goal.id}", reason="customer selected a new support goal")
+        self.recorder.emit(
+            EventType.CURRENT_GOAL_CHANGED,
+            state_version=self.state_version,
+            from_goal=previous.id if previous else None,
+            to_goal=goal.id,
+            parameters=goal.parameters,
+            state_version_before=before,
+        )
+        return True
 
     # --- facts --------------------------------------------------------------
 
@@ -519,6 +560,8 @@ class ResolutionState:
             "turn": self.turn,
             "issue_type": self.issue_type,
             "issue_summary": self.issue_summary,
+            "current_goal": self.current_goal.to_dict() if self.current_goal else None,
+            "goal_history": [goal.to_dict() for goal in self.goal_history],
             "current_strategy": self.current_strategy,
             "loop_score": self.loop_score,
             "escalation_status": self.escalation_status.value,

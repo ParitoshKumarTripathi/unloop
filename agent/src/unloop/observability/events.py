@@ -52,6 +52,7 @@ class EventType(str, Enum):
     HYPOTHESIS_REACTIVATED = "HYPOTHESIS_REACTIVATED"
     USER_CORRECTION = "USER_CORRECTION"
     STRATEGY_CHANGED = "STRATEGY_CHANGED"
+    CURRENT_GOAL_CHANGED = "CURRENT_GOAL_CHANGED"
 
     # --- tools --------------------------------------------------------------
     TOOL_STARTED = "TOOL_STARTED"

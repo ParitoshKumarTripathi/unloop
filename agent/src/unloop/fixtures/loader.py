@@ -1,9 +1,8 @@
-"""Fixture loading and the injectable latency table.
+"""Deterministic stress-profile loading and injectable latency.
 
-Every number the mock backend returns comes from a JSON file in ``fixtures/``. The
-demo controls in the web UI select a fixture and set a delay; they cannot script the
-conversation, fabricate a transcript, or force a hypothesis (ADR-009). What a judge
-sees on screen is the real engine running against a real fixture.
+Fixture JSON retains historical test metadata and expected outcomes, but runtime
+customer records now come exclusively from :mod:`unloop.sandbox`. A profile may
+inject latency or failure; it cannot set the user's goal or mutate customer data.
 
 All data is synthetic. There is no real customer, card, account or phone number
 anywhere in this repository.
@@ -45,7 +44,6 @@ class Fixture:
     label: str
     description: str
     customer: dict[str, Any]
-    backend_state: dict[str, Any]
     tool_delays_ms: dict[str, int] = field(default_factory=dict)
     tool_failures: dict[str, str] = field(default_factory=dict)
     expected_resolution: dict[str, Any] = field(default_factory=dict)
@@ -59,7 +57,6 @@ class Fixture:
             label=data.get("label", data["fixture_id"]),
             description=data.get("description", ""),
             customer=data.get("customer", {}),
-            backend_state=data.get("backend_state", {}),
             tool_delays_ms=dict(data.get("tool_delays_ms", {})),
             tool_failures=dict(data.get("tool_failures", {})),
             expected_resolution=dict(data.get("expected_resolution", {})),
@@ -81,7 +78,6 @@ class Fixture:
             "label": self.label,
             "description": self.description,
             "customer": self.customer,
-            "backend_state": self.backend_state,
             "tool_delays_ms": self.tool_delays_ms,
             "tool_failures": self.tool_failures,
             "expected_resolution": self.expected_resolution,

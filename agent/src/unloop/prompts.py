@@ -16,6 +16,7 @@ and a screen reader.
 
 from __future__ import annotations
 
+from .language import LanguageProfile, get_language
 from .resolution.state import ResolutionState
 
 SYSTEM_PROMPT = """\
@@ -86,6 +87,7 @@ def build_instructions(
     state: ResolutionState,
     *,
     system_prompt: str = SYSTEM_PROMPT,
+    language: LanguageProfile | None = None,
 ) -> str:
     """System prompt plus a compact, current view of what is established.
 
@@ -93,7 +95,37 @@ def build_instructions(
     deliberately short: context bloat costs latency on every turn, and the model does
     not need the full state — only what would change what it says next.
     """
-    lines = [system_prompt, "", "# What you have established so far", ""]
+    profile = language or get_language("english")
+    lines = [
+        system_prompt,
+        "",
+        "# Language for this call",
+        "",
+        profile.response_instruction,
+        "Understand corrections in the selected English or Hindi even if the customer mixes a few familiar terms.",
+        "Keep tool reasoning internal and render every customer-facing answer in the selected language.",
+        "",
+        "# What you have established so far",
+        "",
+    ]
+
+    if state.current_goal:
+        lines.extend(
+            [
+                f"Current customer goal: {state.current_goal.label}",
+                f"Goal parameters: {state.current_goal.parameters or 'none yet'}",
+                "This mutable goal came from the latest user request. Prefer it over the demo preset.",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "Current customer goal: not established yet.",
+                "Ask what support outcome the customer wants; do not assume the demo preset is their request.",
+                "",
+            ]
+        )
 
     if state.confirmed_facts:
         lines.append("Confirmed:")
@@ -121,7 +153,9 @@ def build_instructions(
             lines.append(f"- {correction.claim}")
 
     unchecked = [
-        h for h in state.hypotheses.values() if not h.is_rejected and h.times_suggested_to_user == 0
+        h
+        for h in state.hypotheses.values()
+        if state.current_goal is not None and not h.is_rejected and h.times_suggested_to_user == 0
     ]
     if unchecked:
         lines.append("")
@@ -139,7 +173,12 @@ def build_instructions(
     return "\n".join(lines)
 
 
-def correction_acknowledgement(label: str, next_step: str | None) -> str:
+def correction_acknowledgement(
+    label: str,
+    next_step: str | None,
+    *,
+    language: LanguageProfile | None = None,
+) -> str:
     """A deterministic, safe replacement turn when the guard blocks generated text.
 
     Used when the model tried to re-assert something the customer refuted. It is
@@ -147,6 +186,11 @@ def correction_acknowledgement(label: str, next_step: str | None) -> str:
     it is grounded rather than a canned apology, and it always moves the conversation
     forward instead of stalling on the mistake.
     """
+    profile = language or get_language("english")
+    if profile.id == "hindi":
+        if next_step:
+            return "आप सही कह रहे हैं, वह कारण नहीं है। मैं अब अगली उपलब्ध जाँच करता हूँ।"
+        return "आप सही कह रहे हैं, वह कारण नहीं है। अब मैं पूरी जानकारी के साथ सही टीम को मामला भेजता हूँ।"
     opening = f"You're right, {label.lower()} isn't the problem here."
     if next_step:
         return f"{opening} Let me check {next_step} instead."

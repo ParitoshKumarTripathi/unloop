@@ -5,15 +5,16 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from ..fixtures.loader import Fixture, LatencyTable
-from ..prompts import OPENING_LINE, SYSTEM_PROMPT
+from ..prompts import SYSTEM_PROMPT
 from ..resolution.corrections import _DENIALS, _EVIDENCE_PATTERNS, _REDIRECTS
 from ..resolution.hypotheses import Hypothesis, build_otp_hypotheses
 from ..resolution.output_guard import _HYPOTHESIS_SUBJECTS
 from ..resolution.state import ResolutionState
+from ..sandbox import SyntheticSupportSandbox
 from ..tools.banking import SupportBackend
 from ..tools.escalation import recommend_destination
 from ..tools.types import Subject, ToolResult
-from .base import DomainAdapter, ToolDefinition
+from .base import DomainAdapter, ToolDefinition, goal
 
 
 class BankingAdapter(DomainAdapter):
@@ -22,7 +23,7 @@ class BankingAdapter(DomainAdapter):
     default_fixture = "otp_slow_tool"
     issue_type = "OTP_NOT_RECEIVED"
     issue_summary = "Debit card payment one-time password is not being received"
-    opening_line = OPENING_LINE
+    opening_line = "Banking support. How can I help you today?"
     escalation_destination = "General banking support"
     primary_delay_tool = "get_card_status"
     tools = (
@@ -62,7 +63,45 @@ class BankingAdapter(DomainAdapter):
             "check service incidents",
             public_name="check_service_incidents",
         ),
+        ToolDefinition(
+            "resend_otp",
+            Subject.OTP_DELIVERY,
+            "resend the one-time password after a delivery failure is confirmed",
+            True,
+            requires_hypothesis="OTP_DELIVERY_FAILED",
+            goal_ids=frozenset({"resolve_otp"}),
+        ),
     )
+    goals = (
+        goal(
+            "resolve_otp",
+            "Resolve a one-time-password delivery problem",
+            r"\b(?:otp|one[- ]time password|code)\b",
+            subjects=frozenset(
+                {
+                    Subject.CARD,
+                    Subject.ONLINE_TXN,
+                    Subject.MOBILE,
+                    Subject.OTP_GENERATION,
+                    Subject.OTP_DELIVERY,
+                    Subject.SERVICE_HEALTH,
+                }
+            ),
+        ),
+        goal(
+            "verify_card",
+            "Verify card status and payment eligibility",
+            r"\b(?:card|debit card)\b.*\b(?:status|blocked|active|working|payment)\b",
+            subjects=frozenset({Subject.CARD, Subject.ONLINE_TXN}),
+        ),
+        goal(
+            "verify_registered_mobile",
+            "Verify the registered mobile status",
+            r"\b(?:registered mobile|phone number|mobile number)\b",
+            subjects=frozenset({Subject.MOBILE}),
+        ),
+    )
+    diagnostic_goal_ids = frozenset({"resolve_otp"})
     hypothesis_subjects = _HYPOTHESIS_SUBJECTS
     denial_rules = _DENIALS
     evidence_patterns = _EVIDENCE_PATTERNS
@@ -80,20 +119,40 @@ class BankingAdapter(DomainAdapter):
     safety_boundary = "Provide account support only; do not give financial advice."
 
     def instructions(self) -> str:
-        return SYSTEM_PROMPT
+        tool_lines = "\n".join(f"- {tool.exposed_name}: {tool.purpose}" for tool in self.all_tools)
+        goal_lines = "\n".join(f"- {item.id}: {item.label}" for item in self.goals)
+        return f"""{SYSTEM_PROMPT}
+
+# Mutable support goal
+The demo preset only seeds synthetic account data. It is not the customer's goal.
+Infer the current support goal from the customer's latest words. If they change their
+mind, immediately follow the new goal and stop pursuing the old one.
+
+# Available support operations
+{tool_lines}
+
+# Supported customer goals
+{goal_lines}
+"""
 
     def build_hypotheses(self) -> list[Hypothesis]:
         return build_otp_hypotheses()
 
     def create_backend(
-        self, fixture: Fixture, state: ResolutionState, latency: LatencyTable
+        self,
+        fixture: Fixture,
+        state: ResolutionState,
+        latency: LatencyTable,
+        sandbox: SyntheticSupportSandbox | None = None,
     ) -> SupportBackend:
-        return SupportBackend(fixture, state, latency=latency)
+        return SupportBackend(fixture, state, latency=latency, sandbox=sandbox)
 
     async def invoke(
         self, backend: SupportBackend, tool_name: str, **kwargs: Any
     ) -> tuple[Any, Any]:
-        customer_id = backend.fixture.customer_id
+        if tool_name == "lookup_customer":
+            return await super().invoke(backend, tool_name, **kwargs)
+        customer_id = backend.customer_id
         methods = {
             "get_card_status": lambda: backend.get_card_status(customer_id),
             "get_online_transaction_status": lambda: backend.get_online_transaction_status(
@@ -107,6 +166,7 @@ class BankingAdapter(DomainAdapter):
             "get_service_incidents": lambda: backend.get_service_incidents(
                 kwargs.get("service", "sms_provider")
             ),
+            "resend_otp": lambda: backend.resend_otp(customer_id),
         }
         return await methods[tool_name]()
 
@@ -197,6 +257,11 @@ class BankingAdapter(DomainAdapter):
                     "SMS_PROVIDER_INCIDENT",
                     self.evidence(state, result, f"message provider is {status}", supports=True),
                 )
+        elif tool_name == "resend_otp":
+            state.confirm_fact("otp_resend_status", str(payload.get("action_status", "UNKNOWN")))
+            hypothesis = state.get_hypothesis("OTP_DELIVERY_FAILED")
+            if hypothesis and not hypothesis.is_rejected:
+                hypothesis.resolve(turn=state.turn)
 
     def describe(self, result: ToolResult) -> str:
         p = result.payload
@@ -207,6 +272,7 @@ class BankingAdapter(DomainAdapter):
             "get_otp_generation_status": f"One-time password generation is {p.get('otp_generation_status', 'unknown')}.",
             "get_otp_delivery_status": f"One-time password delivery is {p.get('otp_delivery_status', 'unknown')}.",
             "get_service_incidents": f"The {p.get('service', 'service')} is {p.get('status', 'unknown')}.",
+            "resend_otp": f"The one-time password was {p.get('action_status', 'not resent').lower()} and delivery is {p.get('otp_delivery_status', 'unknown').lower()}.",
         }
         return descriptions.get(result.tool_name, super().describe(result))
 

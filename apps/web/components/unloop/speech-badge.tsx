@@ -1,6 +1,7 @@
 'use client';
 
 import type { SpeechProvider } from '@/hooks/useUnloopState';
+import { useI18n } from '@/lib/i18n';
 
 /**
  * The active speech provider, read from the agent's live configuration.
@@ -11,10 +12,12 @@ import type { SpeechProvider } from '@/hooks/useUnloopState';
  * evidence of anything.
  */
 export function SpeechBadge({ speech }: { speech: SpeechProvider | null }) {
+  const { t } = useI18n();
   if (!speech) {
     return (
       <div className="border-muted-foreground/40 text-muted-foreground rounded-md border border-dashed px-3 py-2 text-xs">
-        SPEECH: <span className="font-mono">waiting for agent…</span>
+        {t('speech.title', 'SPEECH')}:{' '}
+        <span className="font-mono">{t('speech.waiting', 'waiting for agent…')}</span>
       </div>
     );
   }
@@ -36,36 +39,44 @@ export function SpeechBadge({ speech }: { speech: SpeechProvider | null }) {
           ].join(' ')}
         />
         <span className="text-xs font-semibold tracking-wide uppercase">
-          Speech: {speech.provider}
+          {t('speech.title', 'Speech')}: {speech.provider}
         </span>
         {!isRime && (
           <span className="text-[10px] font-medium text-amber-600 uppercase">
-            not the judged path
+            {t('speech.notJudged', 'not the judged path')}
           </span>
         )}
       </div>
 
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] leading-tight">
-        <dt className="text-muted-foreground">model</dt>
+        <dt className="text-muted-foreground">{t('speech.model', 'model')}</dt>
         <dd>{speech.model}</dd>
-        <dt className="text-muted-foreground">voice</dt>
+        <dt className="text-muted-foreground">{t('speech.voice', 'voice')}</dt>
         <dd>{speech.speaker}</dd>
-        <dt className="text-muted-foreground">lang</dt>
+        <dt className="text-muted-foreground">{t('speech.language', 'lang')}</dt>
+        <dd>
+          {speech.label} ({speech.mode})
+        </dd>
+        <dt className="text-muted-foreground">STT</dt>
+        <dd>{speech.stt_language}</dd>
+        <dt className="text-muted-foreground">Rime</dt>
         <dd>{speech.language}</dd>
-        <dt className="text-muted-foreground">transport</dt>
+        <dt className="text-muted-foreground">{t('speech.transport', 'transport')}</dt>
         <dd>{speech.transport}</dd>
-        <dt className="text-muted-foreground">rate</dt>
+        <dt className="text-muted-foreground">{t('speech.rate', 'rate')}</dt>
         <dd>
           {speech.sample_rate} Hz · {speech.audio_format}
         </dd>
-        <dt className="text-muted-foreground">segment</dt>
+        <dt className="text-muted-foreground">{t('speech.segment', 'segment')}</dt>
         <dd>{speech.segment}</dd>
-        <dt className="text-muted-foreground">region</dt>
+        <dt className="text-muted-foreground">{t('speech.region', 'region')}</dt>
         <dd>{speech.region}</dd>
       </dl>
 
       <div className="border-border/50 mt-2 border-t pt-1.5">
-        <div className="text-muted-foreground text-[10px] uppercase">resolved endpoint</div>
+        <div className="text-muted-foreground text-[10px] uppercase">
+          {t('speech.endpoint', 'resolved endpoint')}
+        </div>
         <div className="text-muted-foreground mt-0.5 font-mono text-[10px] break-all">
           {speech.resolved_endpoint}
         </div>

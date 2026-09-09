@@ -6,6 +6,7 @@
   "description": "A confirmed appointment was moved by an automated sync error.",
   "customer": {"customer_id": "demo_salon_customer_001", "appointment_id": "APT-DEMO-309"},
   "backend_state": {
+    "records": {"appointment": {"appointment_id": "APT-DEMO-309", "status": "CONFIRMED", "time": "4 PM", "service": "Haircut"}},
     "tool_results": {
       "check_appointment_record": {"appointment_id": "APT-DEMO-309", "appointment_status": "CHANGED", "current_time": "16:00", "confirmed_time": "14:00"},
       "check_appointment_history": {"change_cause": "SYSTEM_ERROR", "merchant_requested": false},

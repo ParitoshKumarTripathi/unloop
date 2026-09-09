@@ -6,6 +6,7 @@
   "description": "Merchant ledger says processed; the payment rail trace is stalled.",
   "customer": {"customer_id": "demo_shop_customer_001", "order_id": "ORDER-DEMO-1042"},
   "backend_state": {
+    "records": {"order": {"order_id": "ORD-DEMO-104", "status": "DELIVERED", "return_status": "NONE"}},
     "tool_results": {
       "check_refund_record": {"order_id": "ORDER-DEMO-1042", "merchant_refund_status": "PROCESSED", "processed_days_ago": 8},
       "trace_refund_payment": {"rail_status": "STALLED", "last_stage": "acquirer acknowledgement", "trace_reference": "TRACE-DEMO-88"},

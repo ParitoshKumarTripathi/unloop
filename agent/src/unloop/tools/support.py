@@ -1,4 +1,4 @@
-"""Shared fixture-backed tool transport for non-banking domain adapters.
+"""Shared sandbox-backed tool transport for non-banking domain adapters.
 
 This module contains the version stamping, latency injection, failure injection, stale
 fencing, and case handoff plumbing. Domain adapters only declare subjects and fixture
@@ -16,6 +16,7 @@ from ..fixtures.loader import Fixture, LatencyTable
 from ..observability.events import EventType
 from ..resolution.stale_fence import FenceDecision, StaleFence
 from ..resolution.state import ResolutionState
+from ..sandbox import DEMO_CUSTOMER_ID, SyntheticSupportSandbox
 from .types import Subject, ToolResult, ToolStatus
 
 
@@ -24,7 +25,7 @@ class SupportToolError(RuntimeError):
 
 
 class FixtureSupportBackend:
-    """One shared execution path for every fixture-defined support tool."""
+    """Sandbox tools plus fixture-defined latency/failure injection."""
 
     def __init__(
         self,
@@ -33,18 +34,23 @@ class FixtureSupportBackend:
         tool_subjects: dict[str, Subject],
         *,
         latency: LatencyTable | None = None,
+        sandbox: SyntheticSupportSandbox | None = None,
     ) -> None:
         self.fixture = fixture
         self.state = state
         self.tool_subjects = dict(tool_subjects)
         self.latency = latency or LatencyTable(fixture.tool_delays_ms)
         self.fence = StaleFence(state)
+        self.sandbox = sandbox or SyntheticSupportSandbox()
+        self.customer_id = DEMO_CUSTOMER_ID
         self._case_counter = 0
 
     async def call(
         self,
         tool_name: str,
         handler: Callable[[], Awaitable[dict[str, Any]] | dict[str, Any]],
+        *,
+        mutates: bool = False,
     ) -> tuple[ToolResult, FenceDecision]:
         subject = self.tool_subjects.get(tool_name, Subject.CASE)
         call_id = f"tc_{uuid.uuid4().hex[:10]}"
@@ -67,6 +73,12 @@ class FixtureSupportBackend:
             )
         else:
             try:
+                if mutates:
+                    probe = pending.to_result(payload={"action_status": "NOT_APPLIED"})
+                    decision = self.fence.evaluate_tool(probe)
+                    if not decision.may_speak:
+                        self.state.complete_tool(probe)
+                        return probe, decision
                 payload = handler()
                 if asyncio.iscoroutine(payload):
                     payload = await payload
@@ -78,18 +90,40 @@ class FixtureSupportBackend:
         self.state.complete_tool(result)
         return result, decision
 
-    async def run_fixture_tool(self, tool_name: str) -> tuple[ToolResult, FenceDecision]:
-        if tool_name not in self.tool_subjects:
-            raise SupportToolError(f"unknown tool {tool_name!r}")
-
+    async def inspect_record(
+        self, tool_name: str, record_key: str, **query: Any
+    ) -> tuple[ToolResult, FenceDecision]:
         def handler() -> dict[str, Any]:
-            payloads = self.fixture.backend_state.get("tool_results", {})
-            payload = payloads.get(tool_name)
-            if payload is None:
-                raise SupportToolError(f"fixture has no payload for {tool_name!r}")
-            return {"customer_id": self.fixture.customer_id, **dict(payload)}
+            record = self.sandbox.get_record(self.customer_id, self.fixture.domain, record_key)
+            if not record:
+                raise SupportToolError(f"fixture has no {record_key!r} record")
+            return {"customer_id": self.customer_id, **record, **query}
 
         return await self.call(tool_name, handler)
+
+    async def update_record(
+        self,
+        tool_name: str,
+        record_key: str,
+        changes: dict[str, Any],
+        *,
+        action_status: str = "UPDATED",
+    ) -> tuple[ToolResult, FenceDecision]:
+        def handler() -> dict[str, Any]:
+            record = self.sandbox.update_record(
+                self.customer_id,
+                self.fixture.domain,
+                record_key,
+                changes,
+                action=tool_name,
+            )
+            return {
+                "customer_id": self.fixture.customer_id,
+                "action_status": action_status,
+                **dict(record),
+            }
+
+        return await self.call(tool_name, handler, mutates=True)
 
     async def create_support_case(
         self, customer_id: str, summary: str, evidence: dict[str, Any]

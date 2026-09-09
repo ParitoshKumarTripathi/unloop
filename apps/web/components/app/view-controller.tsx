@@ -6,6 +6,7 @@ import { useSessionContext } from '@livekit/components-react';
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';
 import { WelcomeView } from '@/components/app/welcome-view';
 import { DebugPanel } from '@/components/unloop/debug-panel';
+import { useI18n } from '@/lib/i18n';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(AgentSessionView_01);
@@ -42,13 +43,24 @@ export function ViewController({
   demoMode = true,
   selectedDomain,
   onSelectDomain,
+  testMode,
+  selectedFixture,
+  onSelectFixture,
+  selectedLanguage,
+  onSelectLanguage,
 }: {
   demoMode?: boolean;
   selectedDomain: string;
   onSelectDomain: (domain: string) => void;
+  testMode: boolean;
+  selectedFixture: string;
+  onSelectFixture: (fixture: string) => void;
+  selectedLanguage: string;
+  onSelectLanguage: (language: string) => void;
 }) {
   const { isConnected, start } = useSessionContext();
   const { resolvedTheme } = useTheme();
+  const { t } = useI18n();
 
   return (
     <AnimatePresence mode="wait">
@@ -57,10 +69,15 @@ export function ViewController({
         <MotionWelcomeView
           key="welcome"
           {...VIEW_MOTION_PROPS}
-          startButtonText="Start call"
+          startButtonText={t('welcome.start', 'Start call')}
           onStartCall={start}
           selectedDomain={selectedDomain}
           onSelectDomain={onSelectDomain}
+          testMode={testMode}
+          selectedFixture={selectedFixture}
+          onSelectFixture={onSelectFixture}
+          selectedLanguage={selectedLanguage}
+          onSelectLanguage={onSelectLanguage}
         />
       )}
 

@@ -79,6 +79,7 @@ class SpeechTicket:
     state_version: int
     text: str
     intent: str = ""
+    goal_id: str | None = None
     #: Hypotheses this turn asserts, as determined by the output guard's matcher.
     asserted_hypotheses: tuple[str, ...] = ()
     #: Subjects this turn's content depends on. If a correction invalidated one of
@@ -209,6 +210,23 @@ class StaleFence:
         # Rule 2 — a turn generated before a correction that invalidated its subject
         # is answering a question the caller has withdrawn.
         if ticket.state_version < state.state_version:
+            current_goal_id = state.current_goal.id if state.current_goal else None
+            if ticket.goal_id != current_goal_id:
+                state.recorder.emit(
+                    EventType.SPEECH_FENCED_STALE,
+                    state_version=state.state_version,
+                    speech_id=ticket.speech_id,
+                    ticket_state_version=ticket.state_version,
+                    current_state_version=state.state_version,
+                    from_goal=ticket.goal_id,
+                    to_goal=current_goal_id,
+                    text_preview=ticket.text[:160],
+                )
+                return SpeechDecision(
+                    allowed=False,
+                    reason="generated for a support goal the customer replaced",
+                    blocking_rule="SUPERSEDED_GOAL_SPEECH",
+                )
             invalidated = state.subjects_invalidated_since(ticket.state_version)
             overlap = invalidated & set(ticket.depends_on)
             if overlap:

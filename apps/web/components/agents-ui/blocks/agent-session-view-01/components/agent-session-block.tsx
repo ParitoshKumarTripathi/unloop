@@ -8,6 +8,7 @@ import {
   AgentControlBar,
   type AgentControlBarControls,
 } from '@/components/agents-ui/agent-control-bar';
+import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/shadcn/utils';
 import { TileLayout } from './tile-view';
 
@@ -159,7 +160,7 @@ export interface AgentSessionView_01Props {
 }
 
 export function AgentSessionView_01({
-  preConnectMessage = 'Agent is listening, ask it a question',
+  preConnectMessage,
   supportsChatInput = true,
   supportsVideoInput = true,
   supportsScreenShare = true,
@@ -183,6 +184,9 @@ export function AgentSessionView_01({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { state: agentState } = useAgent();
+  const { t } = useI18n();
+  const localizedPreConnectMessage =
+    preConnectMessage ?? t('session.listening', 'Agent is listening, ask it a question');
 
   const controls: AgentControlBarControls = {
     leave: true,
@@ -253,7 +257,7 @@ export function AgentSessionView_01({
                 {...SHIMMER_MOTION_PROPS}
                 className="shimmer shimmer-duration-2000 pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center text-sm font-semibold"
               >
-                {preConnectMessage}
+                {localizedPreConnectMessage}
               </motion.p>
             )}
           </AnimatePresence>

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/lib/i18n';
 
 function WelcomeImage() {
   return (
@@ -23,34 +24,56 @@ interface WelcomeViewProps {
   onStartCall: () => void;
   selectedDomain: string;
   onSelectDomain: (domain: string) => void;
+  testMode: boolean;
+  selectedFixture: string;
+  onSelectFixture: (fixture: string) => void;
+  selectedLanguage: string;
+  onSelectLanguage: (language: string) => void;
 }
 
-const SUPPORT_SCENARIOS = [
-  ['banking', 'Banking', 'OTP not received', 'A debit-card payment OTP never arrives.'],
-  ['ecommerce', 'E-commerce', 'Refund missing', 'A processed refund has not reached the customer.'],
-  [
-    'restaurant',
-    'Restaurant',
-    'Reservation missing',
-    'The restaurant cannot find a confirmed reservation.',
-  ],
-  [
-    'salon',
-    'Salon',
-    'Appointment changed',
-    'A confirmed appointment was changed or cancelled incorrectly.',
-  ],
-  ['hotel', 'Hotel', 'Booking conflict', 'The hotel cannot locate a confirmed booking.'],
+const SUPPORT_DOMAINS = [
+  ['banking', 'Banking', 'Account and payment support'],
+  ['ecommerce', 'E-commerce', 'Order, return, and refund support'],
+  ['restaurant', 'Restaurant', 'Existing reservation support'],
+  ['salon', 'Salon', 'Existing appointment support'],
+  ['hotel', 'Hotel', 'Existing booking support'],
 ] as const;
+
+const SUPPORT_LANGUAGES = [
+  ['english', 'English', 'English conversation'],
+  ['hindi', 'हिन्दी', 'हिन्दी में बातचीत'],
+] as const;
+
+const TEST_FIXTURES: Record<string, readonly (readonly [string, string])[]> = {
+  banking: [
+    ['otp_slow_tool', 'Slow OTP lookup + interruption'],
+    ['otp_normal', 'Normal OTP delivery failure'],
+    ['otp_correction', 'OTP correction'],
+    ['otp_escalation', 'OTP escalation'],
+    ['otp_tool_failure', 'OTP tool failure'],
+  ],
+  ecommerce: [['ecommerce_refund_missing', 'Refund backend baseline']],
+  restaurant: [['restaurant_missing_reservation', 'Restaurant backend baseline']],
+  salon: [['salon_appointment_changed', 'Salon backend baseline']],
+  hotel: [['hotel_booking_conflict', 'Hotel backend baseline']],
+};
 
 export const WelcomeView = ({
   startButtonText,
   onStartCall,
   selectedDomain,
   onSelectDomain,
+  testMode,
+  selectedFixture,
+  onSelectFixture,
+  selectedLanguage,
+  onSelectLanguage,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
-  const selected = SUPPORT_SCENARIOS.find(([id]) => id === selectedDomain);
+  const selected = SUPPORT_DOMAINS.find(([id]) => id === selectedDomain);
+  const { t } = useI18n();
+  const scenarioText = (id: string, field: string, fallback: string) =>
+    t(`scenario.${id}${field}`, fallback);
 
   return (
     <div ref={ref} className="w-full px-5 py-8">
@@ -58,22 +81,24 @@ export const WelcomeView = ({
         <WelcomeImage />
 
         <p className="text-muted-foreground font-mono text-[11px] tracking-[0.24em] uppercase">
-          Unloop resolution agent
+          {t('brand.kicker', 'Unloop resolution agent')}
         </p>
         <h1 className="text-foreground mt-2 max-w-2xl text-2xl font-semibold tracking-tight md:text-4xl">
-          Customer support that changes strategy when it is wrong.
+          {t('welcome.title', 'Customer support that changes strategy when it is wrong.')}
         </h1>
         <p className="text-muted-foreground mt-3 max-w-2xl text-sm leading-6 md:text-base">
-          Choose an existing support problem. The same voice engine investigates, takes corrective
-          action, fences stale results, and escalates with context.
+          {t(
+            'welcome.description',
+            'Choose a support service, start a call, and describe your issue naturally. The agent can investigate, take action, adapt when corrected, and escalate with context.'
+          )}
         </p>
 
         <div className="mt-8 w-full text-left">
           <div className="text-foreground mb-3 text-center text-xs font-semibold tracking-wide uppercase">
-            Choose support scenario
+            {t('welcome.domain', 'Choose support domain')}
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {SUPPORT_SCENARIOS.map(([id, label, short, description]) => {
+            {SUPPORT_DOMAINS.map(([id, label, description]) => {
               const active = id === selectedDomain;
               return (
                 <button
@@ -89,10 +114,70 @@ export const WelcomeView = ({
                   ].join(' ')}
                 >
                   <span className="font-mono text-[10px] tracking-wider uppercase opacity-70">
-                    {short}
+                    {t('welcome.domainLabel', 'Support domain')}
                   </span>
-                  <span className="mt-2 block text-sm font-semibold">{label}</span>
-                  <span className="mt-2 block text-[11px] leading-4 opacity-70">{description}</span>
+                  <span className="mt-2 block text-sm font-semibold">
+                    {scenarioText(id, '', label)}
+                  </span>
+                  <span className="mt-2 block text-[11px] leading-4 opacity-70">
+                    {scenarioText(id, 'Description', description)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {testMode && (
+          <details className="border-border bg-muted/30 mt-5 w-full max-w-md rounded-xl border p-3 text-left">
+            <summary className="cursor-pointer text-center font-mono text-xs font-semibold tracking-wide uppercase">
+              Demo / Test Controls
+            </summary>
+            <label className="mt-3 block text-xs">
+              Deterministic backend fixture
+              <select
+                value={selectedFixture}
+                onChange={(event) => onSelectFixture(event.target.value)}
+                className="border-border bg-card text-foreground mt-2 w-full rounded-lg border px-3 py-2"
+              >
+                {(TEST_FIXTURES[selectedDomain] ?? []).map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="text-muted-foreground mt-2 text-[11px] leading-4">
+              Test mode only: selects backend facts and stress conditions. It never sets the
+              conversational goal.
+            </p>
+          </details>
+        )}
+
+        <div className="mt-6 w-full max-w-2xl text-left">
+          <div className="text-foreground mb-3 text-center text-xs font-semibold tracking-wide uppercase">
+            {t('welcome.language', 'Choose conversation language')}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {SUPPORT_LANGUAGES.map(([id, label, description]) => {
+              const active = id === selectedLanguage;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectLanguage(id)}
+                  className={[
+                    'rounded-xl border px-3 py-3 text-center transition-all',
+                    active
+                      ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                      : 'border-border bg-card hover:border-foreground/40 hover:bg-muted/50',
+                  ].join(' ')}
+                >
+                  <span className="block text-sm font-semibold">{t(`language.${id}`, label)}</span>
+                  <span className="mt-1 block text-[10px] leading-4 opacity-65">
+                    {t(`language.${id}Description`, description)}
+                  </span>
                 </button>
               );
             })}
@@ -104,7 +189,11 @@ export const WelcomeView = ({
           onClick={onStartCall}
           className="mt-7 w-72 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
         >
-          {startButtonText}: {selected?.[1]}
+          {startButtonText}: {selected && scenarioText(selected[0], '', selected[1])} ·{' '}
+          {t(
+            `language.${selectedLanguage}`,
+            SUPPORT_LANGUAGES.find(([id]) => id === selectedLanguage)?.[1] ?? selectedLanguage
+          )}
         </Button>
       </section>
     </div>

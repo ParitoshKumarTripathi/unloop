@@ -9,9 +9,11 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from ..fixtures.loader import Fixture, LatencyTable
+from ..resolution.goals import GoalDefinition
 from ..resolution.hypotheses import Evidence, EvidenceSource, Hypothesis
 from ..resolution.state import ResolutionState
-from ..tools.support import FixtureSupportBackend
+from ..sandbox import SyntheticSupportSandbox
+from ..tools.support import FixtureSupportBackend, SupportToolError
 from ..tools.types import Subject, ToolResult
 
 
@@ -23,6 +25,7 @@ class ToolDefinition:
     corrective_action: bool = False
     public_name: str | None = None
     requires_hypothesis: str | None = None
+    goal_ids: frozenset[str] = frozenset()
 
     @property
     def exposed_name(self) -> str:
@@ -31,6 +34,18 @@ class ToolDefinition:
 
 def rx(pattern: str) -> re.Pattern[str]:
     return re.compile(pattern, re.IGNORECASE)
+
+
+def goal(
+    goal_id: str,
+    label: str,
+    *patterns: str,
+    subjects: frozenset[Subject],
+    tools: frozenset[str] = frozenset(),
+) -> GoalDefinition:
+    return GoalDefinition(
+        goal_id, label, tuple(rx(pattern) for pattern in patterns), subjects, tools
+    )
 
 
 COMMON_NEGATIONS = [
@@ -52,6 +67,8 @@ class DomainAdapter(ABC):
     escalation_destination: str
     primary_delay_tool: str
     tools: tuple[ToolDefinition, ...]
+    goals: tuple[GoalDefinition, ...] = ()
+    diagnostic_goal_ids: frozenset[str] = frozenset()
     hypothesis_subjects: dict[str, frozenset[Subject]]
     denial_rules: tuple[tuple[str, re.Pattern[str], frozenset[Subject]], ...] = ()
     evidence_patterns: tuple[tuple[re.Pattern[str], str], ...] = ()
@@ -60,21 +77,46 @@ class DomainAdapter(ABC):
     remediation_actions: frozenset[str] = frozenset()
     safety_boundary: str = "Resolve the existing support case only."
 
+    @property
+    def all_tools(self) -> tuple[ToolDefinition, ...]:
+        return (
+            ToolDefinition(
+                "lookup_customer", Subject.CASE, "verify the synthetic authenticated customer"
+            ),
+            *self.tools,
+        )
+
     @abstractmethod
     def build_hypotheses(self) -> list[Hypothesis]:
         raise NotImplementedError
 
     def create_backend(
-        self, fixture: Fixture, state: ResolutionState, latency: LatencyTable
+        self,
+        fixture: Fixture,
+        state: ResolutionState,
+        latency: LatencyTable,
+        sandbox: SyntheticSupportSandbox | None = None,
     ) -> FixtureSupportBackend:
-        subjects = {tool.name: tool.subject for tool in self.tools}
+        subjects = {tool.name: tool.subject for tool in self.all_tools}
         subjects.update({"create_support_case": Subject.CASE, "escalate_to_human": Subject.CASE})
-        return FixtureSupportBackend(fixture, state, subjects, latency=latency)
+        return FixtureSupportBackend(fixture, state, subjects, latency=latency, sandbox=sandbox)
 
     async def invoke(
-        self, backend: FixtureSupportBackend, tool_name: str, **_kwargs: Any
+        self, backend: FixtureSupportBackend, tool_name: str, **kwargs: Any
     ) -> tuple[Any, Any]:
-        return await backend.run_fixture_tool(tool_name)
+        if tool_name == "lookup_customer":
+            return await backend.call(
+                tool_name,
+                lambda: (
+                    backend.sandbox.resolve_synthetic_identity(
+                        str(kwargs.get("identifier") or backend.customer_id)
+                    )
+                    or {}
+                ),
+            )
+        raise SupportToolError(
+            f"{self.domain_id} adapter has no sandbox operation for {tool_name!r}"
+        )
 
     @abstractmethod
     def absorb(self, state: ResolutionState, result: ToolResult) -> None:
@@ -112,9 +154,12 @@ class DomainAdapter(ABC):
         )
 
     def instructions(self) -> str:
-        tool_lines = "\n".join(f"- {tool.exposed_name}: {tool.purpose}" for tool in self.tools)
+        tool_lines = "\n".join(f"- {tool.exposed_name}: {tool.purpose}" for tool in self.all_tools)
+        goal_lines = "\n".join(f"- {goal.id}: {goal.label}" for goal in self.goals)
         return f"""You are an AI voice customer-support resolution agent for {self.label.lower()}.
-Your job is to resolve this existing problem: {self.issue_summary}.
+The selected demo preset only seeds synthetic records. It is not the customer's goal.
+Infer the current support goal from the customer's latest words. If they change their mind,
+immediately follow the new goal and stop pursuing the old one.
 Investigate records, accept customer corrections, change strategy when an explanation is wrong,
 take a corrective action when the evidence supports it, and escalate with full context otherwise.
 
@@ -135,4 +180,7 @@ take a corrective action when the evidence supports it, and escalate with full c
 
 # Available support operations
 {tool_lines}
+
+# Supported customer goals
+{goal_lines}
 """

@@ -9,6 +9,7 @@ import type {
   ResolutionSnapshot,
   ToolResult,
 } from '@/hooks/useUnloopState';
+import { useI18n } from '@/lib/i18n';
 
 function Card({
   title,
@@ -47,31 +48,36 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 /** State version and the reason it last changed — the mechanic the whole demo rests on. */
 export function VersionCard({ state }: { state: ResolutionSnapshot }) {
+  const { t, engineText, technical } = useI18n();
   const lastBump = state.version_log[state.version_log.length - 1];
   return (
-    <Card title="State version" count={`v${state.state_version}`}>
+    <Card title={t('card.version', 'State version')} count={`v${state.state_version}`}>
       {lastBump ? (
         <div className="space-y-1">
           <div className="font-mono text-[11px]">
             v{lastBump.from_version} → v{lastBump.to_version}
           </div>
-          <div className="text-muted-foreground text-[11px]">{lastBump.reason}</div>
+          <div className="text-muted-foreground text-[11px]">{engineText(lastBump.reason)}</div>
           {lastBump.invalidated_subjects.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-0.5">
-              <span className="text-muted-foreground text-[10px]">invalidated:</span>
+              <span className="text-muted-foreground text-[10px]">
+                {t('card.invalidated', 'invalidated:')}
+              </span>
               {lastBump.invalidated_subjects.map((s) => (
                 <span
                   key={s}
                   className="rounded bg-red-500/10 px-1 font-mono text-[10px] text-red-600 dark:text-red-400"
                 >
-                  {s}
+                  {technical(s)}
                 </span>
               ))}
             </div>
           )}
         </div>
       ) : (
-        <Empty>No corrections yet. Nothing has been invalidated.</Empty>
+        <Empty>
+          {t('card.noCorrections', 'No corrections yet. Nothing has been invalidated.')}
+        </Empty>
       )}
     </Card>
   );
@@ -85,11 +91,12 @@ const STATUS_STYLE: Record<Hypothesis['status'], string> = {
 };
 
 export function HypothesesCard({ hypotheses }: { hypotheses: Hypothesis[] }) {
+  const { t, engineText } = useI18n();
   const rejected = hypotheses.filter((h) => h.status === 'REJECTED').length;
   return (
     <Card
-      title="Hypotheses"
-      count={`${hypotheses.length} · ${rejected} rejected`}
+      title={t('card.hypotheses', 'Hypotheses')}
+      count={`${hypotheses.length} · ${rejected} ${t('card.rejected', 'rejected')}`}
       accent={rejected > 0 ? 'danger' : 'default'}
     >
       <ul className="space-y-1.5">
@@ -97,18 +104,18 @@ export function HypothesesCard({ hypotheses }: { hypotheses: Hypothesis[] }) {
           <li key={h.id} className="text-[11px]">
             <div className="flex items-start justify-between gap-2">
               <span className={`rounded px-1 font-mono text-[10px] ${STATUS_STYLE[h.status]}`}>
-                {h.id}
+                {engineText(h.status)}
               </span>
               <span className="text-muted-foreground shrink-0 font-mono text-[10px]">
                 {h.status === 'REJECTED' && h.rejected_at_version !== null
-                  ? `rejected @v${h.rejected_at_version}`
+                  ? `${t('card.rejectedAt', 'rejected @')} v${h.rejected_at_version}`
                   : h.confidence.toFixed(2)}
               </span>
             </div>
-            <div className="text-muted-foreground mt-0.5">{h.label}</div>
+            <div className="text-muted-foreground mt-0.5">{engineText(h.label)}</div>
             {h.status === 'REJECTED' && h.contradicting_evidence.length > 0 && (
               <div className="mt-0.5 border-l-2 border-red-500/30 pl-1.5 text-[10px] text-red-600/80 dark:text-red-400/80">
-                {h.contradicting_evidence[h.contradicting_evidence.length - 1].summary}
+                {engineText(h.contradicting_evidence[h.contradicting_evidence.length - 1].summary)}
               </div>
             )}
           </li>
@@ -119,10 +126,11 @@ export function HypothesesCard({ hypotheses }: { hypotheses: Hypothesis[] }) {
 }
 
 export function FactsCard({ facts }: { facts: Fact[] }) {
+  const { t } = useI18n();
   return (
-    <Card title="Confirmed facts" count={facts.length}>
+    <Card title={t('card.facts', 'Confirmed facts')} count={facts.length}>
       {facts.length === 0 ? (
-        <Empty>Nothing established yet.</Empty>
+        <Empty>{t('card.noFacts', 'Nothing established yet.')}</Empty>
       ) : (
         <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 font-mono text-[11px]">
           {facts.map((f, i) => (
@@ -135,32 +143,37 @@ export function FactsCard({ facts }: { facts: Fact[] }) {
 }
 
 function FactRow({ fact }: { fact: Fact }) {
+  const { engineText, technical } = useI18n();
   return (
     <>
-      <dt className="text-muted-foreground">{fact.key}</dt>
-      <dd>{fact.value}</dd>
+      <dt className="text-muted-foreground">{technical(fact.key)}</dt>
+      <dd>{engineText(fact.value)}</dd>
     </>
   );
 }
 
 export function CorrectionsCard({ corrections }: { corrections: Correction[] }) {
+  const { t, engineText, technical } = useI18n();
   return (
     <Card
-      title="Caller corrections"
+      title={t('card.corrections', 'Caller corrections')}
       count={corrections.length}
       accent={corrections.length > 0 ? 'warn' : 'default'}
     >
       {corrections.length === 0 ? (
-        <Empty>The caller has not contradicted anything yet.</Empty>
+        <Empty>
+          {t('card.noCallerCorrections', 'The caller has not contradicted anything yet.')}
+        </Empty>
       ) : (
         <ul className="space-y-1.5">
           {corrections.map((c) => (
             <li key={c.id} className="text-[11px]">
-              <div className="font-medium">{c.claim}</div>
-              <div className="text-muted-foreground">{c.evidence}</div>
+              <div className="font-medium">{engineText(c.claim)}</div>
+              <div className="text-muted-foreground">{engineText(c.evidence)}</div>
               <div className="text-muted-foreground font-mono text-[10px]">
                 v{c.state_version_before} → v{c.state_version_after}
-                {c.invalidates.length > 0 && ` · invalidated ${c.invalidates.join(', ')}`}
+                {c.invalidates.length > 0 &&
+                  ` · ${t('card.invalidated', 'invalidated:')} ${c.invalidates.map(technical).join(', ')}`}
               </div>
             </li>
           ))}
@@ -182,21 +195,23 @@ export function ToolTimelineCard({
   completed: ToolResult[];
   pending: PendingTool[];
 }) {
+  const { t: tr, technical, engineText } = useI18n();
   const staleCount = completed.filter((t) => t.stale).length;
   return (
     <Card
-      title="Tool timeline"
-      count={`${completed.length} done · ${pending.length} in flight · ${staleCount} fenced`}
+      title={tr('card.timeline', 'Tool timeline')}
+      count={`${completed.length} ${tr('card.done', 'done')} · ${pending.length} ${tr('card.inFlight', 'in flight')} · ${staleCount} ${tr('card.fenced', 'fenced')}`}
       accent={staleCount > 0 ? 'danger' : 'default'}
     >
       <ul className="space-y-1">
         {pending.map((p) => (
           <li key={p.tool_call_id} className="flex items-center gap-2 text-[11px]">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-            <span className="font-mono">{p.tool_name}</span>
+            <span className="font-mono">{technical(p.tool_name)}</span>
             <span className="text-muted-foreground">
-              in flight @v{p.state_version}
-              {p.injected_delay_ms > 0 && ` · +${p.injected_delay_ms}ms injected`}
+              {tr('card.inFlight', 'in flight')} @v{p.state_version}
+              {p.injected_delay_ms > 0 &&
+                ` · +${p.injected_delay_ms}ms ${tr('card.injected', 'injected')}`}
             </span>
           </li>
         ))}
@@ -212,9 +227,9 @@ export function ToolTimelineCard({
                     t.stale ? 'bg-red-500' : t.status === 'OK' ? 'bg-emerald-500' : 'bg-amber-500',
                   ].join(' ')}
                 />
-                <span className="font-mono">{t.tool_name}</span>
+                <span className="font-mono">{technical(t.tool_name)}</span>
                 <span className="text-muted-foreground font-mono text-[10px]">
-                  issued @v{t.state_version}
+                  {tr('card.issued', 'issued')} @v{t.state_version}
                 </span>
                 {t.fence_verdict && (
                   <span
@@ -227,49 +242,54 @@ export function ToolTimelineCard({
                           : 'bg-muted text-muted-foreground',
                     ].join(' ')}
                   >
-                    {t.fence_verdict}
+                    {engineText(t.fence_verdict)}
                   </span>
                 )}
                 {t.status !== 'OK' && (
                   <span className="rounded bg-amber-500/15 px-1 font-mono text-[10px] text-amber-700 dark:text-amber-400">
-                    {t.status}
+                    {engineText(t.status)}
                   </span>
                 )}
               </div>
               {t.stale && (
                 <div className="ml-3.5 text-[10px] text-red-600/80 dark:text-red-400/80">
-                  fenced — result kept as evidence, refused speech (spoke:{' '}
-                  {String(t.triggered_speech)})
+                  {tr('card.fenced', 'fenced')} —{' '}
+                  {tr('card.fencedDetail', 'result kept as evidence, refused speech')} (
+                  {tr('card.spoke', 'spoke')}:{' '}
+                  {t.triggered_speech ? tr('common.yes', 'yes') : tr('common.no', 'no')})
                 </div>
               )}
             </li>
           ))}
-        {completed.length === 0 && pending.length === 0 && <Empty>No checks run yet.</Empty>}
+        {completed.length === 0 && pending.length === 0 && (
+          <Empty>{tr('card.noChecks', 'No checks run yet.')}</Empty>
+        )}
       </ul>
     </Card>
   );
 }
 
 export function LoopCard({ state }: { state: ResolutionSnapshot }) {
+  const { t, engineText, technical } = useI18n();
   const triggered = state.loop_score >= 3;
   return (
     <Card
-      title="Loop detector"
-      count={`score ${state.loop_score}`}
+      title={t('card.loop', 'Loop detector')}
+      count={`${t('card.score', 'score')} ${state.loop_score}`}
       accent={triggered ? 'danger' : 'default'}
     >
       <div className="space-y-0.5 text-[11px]">
         <div>
-          <span className="text-muted-foreground">strategy: </span>
-          <span className="font-mono">{state.current_strategy}</span>
+          <span className="text-muted-foreground">{t('card.strategy', 'strategy:')} </span>
+          <span className="font-mono">{technical(state.current_strategy)}</span>
         </div>
         <div>
-          <span className="text-muted-foreground">escalation: </span>
-          <span className="font-mono">{state.escalation_status}</span>
+          <span className="text-muted-foreground">{t('card.escalation', 'escalation:')} </span>
+          <span className="font-mono">{engineText(state.escalation_status)}</span>
         </div>
         {triggered && (
           <div className="text-red-600 dark:text-red-400">
-            Loop detected — strategy must change or escalate.
+            {t('card.loopDetected', 'Loop detected — strategy must change or escalate.')}
           </div>
         )}
       </div>
@@ -279,11 +299,12 @@ export function LoopCard({ state }: { state: ResolutionSnapshot }) {
 
 /** What the caller actually heard, versus what was generated. */
 export function HeardCard({ state }: { state: ResolutionSnapshot }) {
+  const { t, engineText } = useI18n();
   const records = state.speech_records.slice(-4).reverse();
   return (
-    <Card title="What the caller heard" count={state.speech_records.length}>
+    <Card title={t('card.heard', 'What the caller heard')} count={state.speech_records.length}>
       {records.length === 0 ? (
-        <Empty>The agent has not spoken yet.</Empty>
+        <Empty>{t('card.notSpoken', 'The agent has not spoken yet.')}</Empty>
       ) : (
         <ul className="space-y-1.5">
           {records.map((r) => (
@@ -299,11 +320,11 @@ export function HeardCard({ state }: { state: ResolutionSnapshot }) {
                         : 'bg-muted text-muted-foreground',
                   ].join(' ')}
                 >
-                  {r.heard_status}
+                  {engineText(r.heard_status)}
                 </span>
                 <span className="text-muted-foreground font-mono text-[10px]">
                   @v{r.state_version}
-                  {r.aligned && ' · word-aligned'}
+                  {r.aligned && ` · ${t('card.wordAligned', 'word-aligned')}`}
                 </span>
               </div>
               {r.heard_text && (
@@ -311,7 +332,10 @@ export function HeardCard({ state }: { state: ResolutionSnapshot }) {
               )}
               {r.heard_status === 'INTERRUPTED' && !r.heard_text && (
                 <div className="text-muted-foreground mt-0.5 text-[10px] italic">
-                  cut before any audio reached the caller — not counted as communicated
+                  {t(
+                    'card.cutBeforeAudio',
+                    'cut before any audio reached the caller — not counted as communicated'
+                  )}
                 </div>
               )}
             </li>
@@ -324,65 +348,83 @@ export function HeardCard({ state }: { state: ResolutionSnapshot }) {
 
 /** The structured handoff. The point is that it is state, not a transcript. */
 export function HandoffCard({ handoff }: { handoff: HandoffPacket }) {
+  const { t, engineText, technical } = useI18n();
   const hasContent =
     handoff.confirmed.length > 0 || handoff.rejected.length > 0 || handoff.attempted.length > 0;
   return (
     <Card
-      title="Handoff packet"
-      count={handoff.case_id ?? 'not created'}
+      title={t('card.handoff', 'Handoff packet')}
+      count={handoff.case_id ?? t('card.notCreated', 'not created')}
       accent={handoff.case_id ? 'success' : 'default'}
     >
       {!hasContent ? (
-        <Empty>Nothing to hand over yet.</Empty>
+        <Empty>{t('card.nothingToHandoff', 'Nothing to hand over yet.')}</Empty>
       ) : (
         <div className="space-y-1.5 text-[11px]">
           {handoff.confirmed.length > 0 && (
             <div>
-              <div className="text-muted-foreground text-[10px] uppercase">confirmed</div>
+              <div className="text-muted-foreground text-[10px] uppercase">
+                {t('card.confirmed', 'confirmed')}
+              </div>
               <div className="font-mono text-[10px]">
-                {handoff.confirmed.map((c) => `${c.key}=${c.value}`).join(' · ')}
+                {handoff.confirmed
+                  .map((c) => `${technical(c.key)}=${engineText(c.value)}`)
+                  .join(' · ')}
               </div>
             </div>
           )}
           {handoff.rejected.length > 0 && (
             <div>
-              <div className="text-muted-foreground text-[10px] uppercase">ruled out</div>
+              <div className="text-muted-foreground text-[10px] uppercase">
+                {t('card.ruledOut', 'ruled out')}
+              </div>
               {handoff.rejected.map((r) => (
                 <div key={r.id}>
-                  <span className="line-through">{r.label}</span>
-                  {r.because[0] && <span className="text-muted-foreground"> — {r.because[0]}</span>}
+                  <span className="line-through">{engineText(r.label)}</span>
+                  {r.because[0] && (
+                    <span className="text-muted-foreground"> — {engineText(r.because[0])}</span>
+                  )}
                 </div>
               ))}
             </div>
           )}
           {handoff.conflicts.length > 0 && (
             <div>
-              <div className="text-[10px] text-amber-600 uppercase">conflicts</div>
+              <div className="text-[10px] text-amber-600 uppercase">
+                {t('card.conflicts', 'conflicts')}
+              </div>
               {handoff.conflicts.map((c, i) => (
                 <div key={i} className="text-amber-700 dark:text-amber-400">
-                  {c}
+                  {engineText(c)}
                 </div>
               ))}
             </div>
           )}
           {handoff.open_questions.length > 0 && (
             <div>
-              <div className="text-muted-foreground text-[10px] uppercase">open</div>
+              <div className="text-muted-foreground text-[10px] uppercase">
+                {t('card.open', 'open')}
+              </div>
               {handoff.open_questions.slice(0, 3).map((q, i) => (
                 <div key={i} className="text-muted-foreground">
-                  {q}
+                  {engineText(q)}
                 </div>
               ))}
             </div>
           )}
           <div>
-            <span className="text-muted-foreground text-[10px] uppercase">routed to </span>
-            <span className="font-medium">{handoff.recommended_destination}</span>
+            <span className="text-muted-foreground text-[10px] uppercase">
+              {t('card.routedTo', 'routed to ')}{' '}
+            </span>
+            <span className="font-medium">{engineText(handoff.recommended_destination)}</span>
           </div>
           {handoff.stale_results_fenced > 0 && (
             <div className="font-mono text-[10px] text-red-600 dark:text-red-400">
-              {handoff.stale_results_fenced} stale result
-              {handoff.stale_results_fenced === 1 ? '' : 's'} fenced this call
+              {handoff.stale_results_fenced}{' '}
+              {handoff.stale_results_fenced === 1
+                ? t('card.staleResult', 'stale result')
+                : t('card.staleResults', 'stale results')}{' '}
+              {t('card.fencedThisCall', 'fenced this call')}
             </div>
           )}
         </div>

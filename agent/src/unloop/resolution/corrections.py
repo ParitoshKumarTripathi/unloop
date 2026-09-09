@@ -148,13 +148,24 @@ _INEFFECTIVE = _rx(
     r"|\bstill\b[^.?!]{0,25}\b(?:not\s+(?:working|receiving|getting)|no\s+o\.?t\.?p\.?|same (?:issue|problem))\b"
     r"|\b(?:no|nothing)\s+(?:change|difference)\b"
     r"|\bsame\s+(?:thing|problem|issue)\b"
+    r"|\b(?:abhi\s+bhi|phir\s+bhi)\b[^.?!]{0,30}\b(?:nahi|nahin)\b"
+    r"|\b(?:kaam|help|solve|fix)\b[^.?!]{0,20}\b(?:nahi|nahin)\b"
+    r"|\b(?:koi\s+)?(?:farq|fayda)\b[^.?!]{0,15}\b(?:nahi|nahin)\b"
+    r"|(?:अभी भी|फिर भी)[^.?!]{0,30}(?:नहीं|नही)"
+    r"|(?:काम|मदद|हल)[^.?!]{0,20}(?:नहीं|नही)"
 )
 
 # --- generic denial of whatever we just said -------------------------------
 _GENERIC_DENIAL = _rx(
     r"^\s*(?:no|nope|nah)\b|"
     r"\bthat'?s\s+(?:not\s+(?:it|right|correct|true)|wrong|incorrect)\b|"
-    r"\bnot\s+the\s+(?:issue|problem|case)\b"
+    r"\bnot\s+the\s+(?:issue|problem|case)\b|"
+    r"^\s*(?:nahi|nahin|na)\b|"
+    r"\b(?:yeh|ye|woh|vo)\b[^.?!]{0,20}\b(?:galat|nahi|nahin)\b|"
+    r"\b(?:problem|issue|wajah|reason)\b[^.?!]{0,15}\b(?:nahi|nahin)\b|"
+    r"^\s*(?:नहीं|नही|ना)(?:\s|,)|"
+    r"(?:यह|ये|वह|वो)[^.?!]{0,20}(?:गलत|नहीं|नही)|"
+    r"(?:समस्या|दिक्कत|कारण|वजह)[^.?!]{0,15}(?:नहीं|नही)"
 )
 
 

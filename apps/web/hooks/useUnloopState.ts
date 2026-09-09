@@ -101,6 +101,13 @@ export interface ResolutionSnapshot {
   turn: number;
   issue_type: string;
   issue_summary: string;
+  current_goal: {
+    id: string;
+    label: string;
+    raw_utterance: string;
+    parameters: Record<string, unknown>;
+    subjects: string[];
+  } | null;
   current_strategy: string;
   loop_score: number;
   escalation_status: string;
@@ -123,6 +130,9 @@ export interface SpeechProvider {
   model: string;
   speaker: string;
   language: string;
+  mode: string;
+  label: string;
+  stt_language: string;
   transport: string;
   base_url: string;
   resolved_endpoint: string;
@@ -154,6 +164,8 @@ export interface FixtureInfo {
   tool_delays_ms: Record<string, number>;
   available: Array<{ fixture_id: string; domain: string; label: string; description: string }>;
   domains: Array<{ id: string; label: string; issue: string; fixture_id: string }>;
+  languages: Array<{ id: string; label: string; stt_language: string; rime_language: string }>;
+  language: string;
 }
 
 export interface UnloopPayload {
@@ -163,6 +175,20 @@ export interface UnloopPayload {
   fixture: FixtureInfo;
   loop: { score: number; strategy: string };
   handoff: HandoffPacket;
+  sandbox: SandboxSnapshot;
+}
+
+export interface SandboxSnapshot {
+  customer: { customer_id: string; display_name: string; synthetic: number } | null;
+  domain: string;
+  records: Array<Record<string, unknown>>;
+  recent_changes: Array<{
+    id: number;
+    record_type: string;
+    record_id: string;
+    action: string;
+    fields: Array<{ field: string; before: unknown; after: unknown }>;
+  }>;
 }
 
 export interface UnloopState {
@@ -173,6 +199,7 @@ export interface UnloopState {
   lastUpdate: number | null;
   setToolDelay: (tool: string, delayMs: number) => void;
   clearDelays: () => void;
+  resetDemoData: () => void;
 }
 
 const decoder = new TextDecoder();
@@ -242,6 +269,9 @@ export function useUnloopState(): UnloopState {
   const clearDelays = useCallback(() => {
     publishControl({ action: 'clear_delays' });
   }, [publishControl]);
+  const resetDemoData = useCallback(() => {
+    publishControl({ action: 'reset_demo_data' });
+  }, [publishControl]);
 
   return {
     data,
@@ -249,5 +279,6 @@ export function useUnloopState(): UnloopState {
     lastUpdate,
     setToolDelay,
     clearDelays,
+    resetDemoData,
   };
 }

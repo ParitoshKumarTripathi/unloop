@@ -7,7 +7,7 @@ from typing import ClassVar
 from ..resolution.hypotheses import Hypothesis
 from ..resolution.state import ResolutionState
 from ..tools.types import Subject, ToolResult
-from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, rx
+from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, goal, rx
 
 
 class SalonAdapter(DomainAdapter):
@@ -16,7 +16,7 @@ class SalonAdapter(DomainAdapter):
     default_fixture = "salon_appointment_changed"
     issue_type = "APPOINTMENT_RECORD_CONFLICT"
     issue_summary = "Confirmed salon appointment is missing, cancelled, or changed incorrectly"
-    opening_line = "I can help fix the appointment record. What does the salon say is different from your confirmation?"
+    opening_line = "Salon support. How can I help you today?"
     escalation_destination = "Appointment operations"
     primary_delay_tool = "check_appointment_record"
     tools = (
@@ -31,9 +31,74 @@ class SalonAdapter(DomainAdapter):
             Subject.APPOINTMENT,
             "correctively reschedule the affected appointment",
             True,
-            requires_hypothesis="APPOINTMENT_CHANGED_IN_ERROR",
+            goal_ids=frozenset({"reschedule_appointment", "resolve_appointment_mismatch"}),
+        ),
+        ToolDefinition(
+            "check_salon_availability",
+            Subject.APPOINTMENT,
+            "check availability for a requested appointment time",
+        ),
+        ToolDefinition(
+            "change_appointment_service",
+            Subject.APPOINTMENT,
+            "change the service on an existing appointment",
+            True,
+            goal_ids=frozenset({"change_appointment_service"}),
+        ),
+        ToolDefinition(
+            "cancel_appointment",
+            Subject.APPOINTMENT,
+            "cancel an existing appointment",
+            True,
+            goal_ids=frozenset({"cancel_appointment"}),
+        ),
+        ToolDefinition(
+            "rebook_appointment",
+            Subject.APPOINTMENT,
+            "rebook an affected appointment",
+            True,
+            goal_ids=frozenset({"rebook_appointment", "resolve_appointment_mismatch"}),
         ),
     )
+    goals = (
+        goal(
+            "change_appointment_service",
+            "Change the service on an appointment",
+            r"\b(?:change|switch)\b.*\b(?:service|haircut|treatment)\b",
+            subjects=frozenset({Subject.APPOINTMENT}),
+        ),
+        goal(
+            "cancel_appointment",
+            "Cancel an existing appointment",
+            r"\bcancel\b.*\bappointment\b",
+            subjects=frozenset({Subject.APPOINTMENT}),
+        ),
+        goal(
+            "rebook_appointment",
+            "Rebook an affected appointment",
+            r"\b(?:rebook|book again|replacement)\b",
+            subjects=frozenset({Subject.APPOINTMENT, Subject.MERCHANT_RECORD}),
+        ),
+        goal(
+            "reschedule_appointment",
+            "Reschedule an existing appointment",
+            r"\b(?:move|reschedule|prepone|postpone|earlier|later)\b",
+            subjects=frozenset({Subject.APPOINTMENT}),
+        ),
+        goal(
+            "resolve_appointment_mismatch",
+            "Resolve an appointment record mismatch",
+            r"\b(?:missing|changed|cancelled|canceled|wrong|mismatch|cannot find)\b.*\bappointment\b",
+            subjects=frozenset({Subject.APPOINTMENT, Subject.MERCHANT_RECORD}),
+        ),
+        goal(
+            "verify_appointment",
+            "Find or verify an existing appointment",
+            r"\b(?:find|verify|check|locate)\b.*\bappointment\b",
+            subjects=frozenset({Subject.APPOINTMENT, Subject.MERCHANT_RECORD}),
+        ),
+    )
+    diagnostic_goal_ids = frozenset({"resolve_appointment_mismatch"})
     hypothesis_subjects: ClassVar[dict[str, frozenset[Subject]]] = {
         "APPOINTMENT_UNCHANGED": frozenset({Subject.APPOINTMENT}),
         "MERCHANT_CANCELLED_APPOINTMENT": frozenset({Subject.MERCHANT_RECORD}),
@@ -116,6 +181,75 @@ class SalonAdapter(DomainAdapter):
                 negation_cues=COMMON_NEGATIONS,
             ),
         ]
+
+    async def invoke(self, backend, tool_name: str, **kwargs):
+        if tool_name == "check_appointment_record":
+
+            def appointment():
+                record = backend.sandbox.get_record(
+                    backend.customer_id, self.domain_id, "appointment"
+                )
+                return {
+                    "customer_id": backend.customer_id,
+                    "appointment_status": record.get("status", "UNKNOWN"),
+                    **record,
+                }
+
+            return await backend.call(tool_name, appointment)
+        if tool_name == "check_appointment_history":
+
+            def history():
+                record = backend.sandbox.get_record(
+                    backend.customer_id, self.domain_id, "appointment"
+                )
+                return {
+                    "customer_id": backend.customer_id,
+                    "change_cause": record.get("change_cause", "NONE"),
+                    **record,
+                }
+
+            return await backend.call(tool_name, history)
+        if tool_name == "check_salon_availability":
+
+            def availability():
+                record = backend.sandbox.get_record(
+                    backend.customer_id, self.domain_id, "appointment"
+                )
+                return {
+                    "customer_id": backend.customer_id,
+                    **backend.sandbox.check_availability(
+                        self.domain_id,
+                        record["salon"],
+                        record["date"],
+                        kwargs.get("requested_time", ""),
+                    ),
+                }
+
+            return await backend.call(tool_name, availability)
+        if tool_name == "change_appointment_service":
+            return await backend.update_record(
+                tool_name, "appointment", {"service": kwargs.get("service")}
+            )
+        if tool_name == "cancel_appointment":
+            return await backend.update_record(
+                tool_name, "appointment", {"status": "CANCELLED"}, action_status="CANCELLED"
+            )
+        if tool_name == "rebook_appointment":
+            return await backend.update_record(
+                tool_name,
+                "appointment",
+                {"status": "CONFIRMED", "time": kwargs.get("new_time")},
+                action_status="REBOOKED",
+            )
+        if tool_name == "reschedule_appointment" and kwargs:
+            return await backend.update_record(
+                tool_name, "appointment", {"time": kwargs.get("new_time")}
+            )
+        if tool_name == "reschedule_appointment":
+            return await backend.update_record(
+                tool_name, "appointment", {"status": "CONFIRMED"}, action_status="RESCHEDULED"
+            )
+        return await super().invoke(backend, tool_name, **kwargs)
 
     def absorb(self, state: ResolutionState, result: ToolResult) -> None:
         p = result.payload

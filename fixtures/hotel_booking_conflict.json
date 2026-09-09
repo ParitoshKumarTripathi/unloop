@@ -6,6 +6,7 @@
   "description": "Platform booking is confirmed but absent from the hotel's property system.",
   "customer": {"customer_id": "demo_hotel_guest_001", "booking_id": "HTL-DEMO-552"},
   "backend_state": {
+    "records": {"booking": {"booking_id": "HTL-DEMO-448", "status": "CONFIRMED", "check_in": "2026-10-12", "check_out": "2026-10-14", "guest_count": 2}},
     "tool_results": {
       "check_platform_booking": {"booking_id": "HTL-DEMO-552", "platform_status": "CONFIRMED", "room_type": "Deluxe King"},
       "check_hotel_record": {"hotel_status": "MISSING", "property_reference": null},

@@ -7,7 +7,7 @@ from typing import ClassVar
 from ..resolution.hypotheses import Hypothesis
 from ..resolution.state import ResolutionState
 from ..tools.types import Subject, ToolResult
-from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, rx
+from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, goal, rx
 
 
 class HotelAdapter(DomainAdapter):
@@ -16,7 +16,7 @@ class HotelAdapter(DomainAdapter):
     default_fixture = "hotel_booking_conflict"
     issue_type = "HOTEL_BOOKING_NOT_FOUND"
     issue_summary = "Customer has a confirmed hotel booking but the hotel cannot locate it"
-    opening_line = "I can help reconcile that booking. Is the hotel unable to find the confirmation at all, or are the details different?"
+    opening_line = "Hotel support. How can I help you today?"
     escalation_destination = "Hotel partner reconciliation"
     primary_delay_tool = "check_platform_booking"
     tools = (
@@ -33,7 +33,79 @@ class HotelAdapter(DomainAdapter):
             True,
             requires_hypothesis="HOTEL_SYNC_FAILURE",
         ),
+        ToolDefinition(
+            "check_hotel_availability",
+            Subject.BOOKING,
+            "check availability for requested booking dates",
+        ),
+        ToolDefinition(
+            "change_hotel_dates",
+            Subject.BOOKING,
+            "change dates on an existing booking",
+            True,
+            goal_ids=frozenset({"change_booking_dates"}),
+        ),
+        ToolDefinition(
+            "change_hotel_guest_count",
+            Subject.BOOKING,
+            "change the guest count on an existing booking",
+            True,
+            goal_ids=frozenset({"change_guest_count"}),
+        ),
+        ToolDefinition(
+            "cancel_hotel_booking",
+            Subject.BOOKING,
+            "cancel an existing booking",
+            True,
+            goal_ids=frozenset({"cancel_booking"}),
+        ),
+        ToolDefinition(
+            "rebook_hotel_booking",
+            Subject.BOOKING,
+            "rebook an affected existing booking",
+            True,
+            goal_ids=frozenset({"rebook_booking", "resolve_booking_mismatch"}),
+        ),
     )
+    goals = (
+        goal(
+            "change_guest_count",
+            "Change the guest count on a hotel booking",
+            r"\b(?:guest|people|party size)\b",
+            subjects=frozenset({Subject.BOOKING}),
+        ),
+        goal(
+            "cancel_booking",
+            "Cancel an existing hotel booking",
+            r"\bcancel\b.*\b(?:hotel|booking|reservation)\b",
+            subjects=frozenset({Subject.BOOKING}),
+        ),
+        goal(
+            "rebook_booking",
+            "Rebook an affected hotel stay",
+            r"\b(?:rebook|book again|replacement)\b",
+            subjects=frozenset({Subject.BOOKING, Subject.PARTNER_RECORD}),
+        ),
+        goal(
+            "change_booking_dates",
+            "Change dates on an existing hotel booking",
+            r"\b(?:change|move|extend|shorten|postpone)\b.*\b(?:date|stay|booking|check.?in|check.?out)\b",
+            subjects=frozenset({Subject.BOOKING}),
+        ),
+        goal(
+            "resolve_booking_mismatch",
+            "Resolve a hotel booking mismatch",
+            r"\b(?:missing|cannot|can'?t|mismatch|conflict|not find)\b.*\b(?:booking|reservation)\b",
+            subjects=frozenset({Subject.BOOKING, Subject.PARTNER_RECORD}),
+        ),
+        goal(
+            "verify_booking",
+            "Find or verify an existing hotel booking",
+            r"\b(?:find|verify|check|locate)\b.*\b(?:booking|reservation)\b",
+            subjects=frozenset({Subject.BOOKING, Subject.PARTNER_RECORD}),
+        ),
+    )
+    diagnostic_goal_ids = frozenset({"resolve_booking_mismatch"})
     hypothesis_subjects: ClassVar[dict[str, frozenset[Subject]]] = {
         "HOTEL_HAS_BOOKING": frozenset({Subject.PARTNER_RECORD}),
         "PLATFORM_BOOKING_INVALID": frozenset({Subject.BOOKING}),
@@ -114,6 +186,78 @@ class HotelAdapter(DomainAdapter):
                 negation_cues=COMMON_NEGATIONS,
             ),
         ]
+
+    async def invoke(self, backend, tool_name: str, **kwargs):
+        if tool_name == "check_platform_booking":
+
+            def platform():
+                record = backend.sandbox.get_record(backend.customer_id, self.domain_id, "booking")
+                return {
+                    "customer_id": backend.customer_id,
+                    "platform_status": record.get("status", "UNKNOWN"),
+                    **record,
+                }
+
+            return await backend.call(tool_name, platform)
+        if tool_name == "check_hotel_record":
+
+            def partner():
+                record = backend.sandbox.get_record(backend.customer_id, self.domain_id, "booking")
+                status = "MISSING" if record.get("partner_status") == "MISSING" else "FOUND"
+                return {"customer_id": backend.customer_id, "hotel_status": status, **record}
+
+            return await backend.call(tool_name, partner)
+        if tool_name == "reconcile_hotel_booking":
+
+            def reconcile():
+                record = backend.sandbox.update_record(
+                    backend.customer_id,
+                    self.domain_id,
+                    "booking",
+                    {"partner_status": "FOUND"},
+                    action=tool_name,
+                )
+                return {"customer_id": backend.customer_id, "action_status": "RECONCILED", **record}
+
+            return await backend.call(tool_name, reconcile, mutates=True)
+        if tool_name == "check_hotel_availability":
+
+            def availability():
+                record = backend.sandbox.get_record(backend.customer_id, self.domain_id, "booking")
+                return {
+                    "customer_id": backend.customer_id,
+                    "availability": "AVAILABLE",
+                    "hotel": record["hotel"],
+                    **kwargs,
+                }
+
+            return await backend.call(tool_name, availability)
+        if tool_name == "change_hotel_dates":
+            return await backend.update_record(
+                tool_name,
+                "booking",
+                {"check_in": kwargs.get("check_in"), "check_out": kwargs.get("check_out")},
+            )
+        if tool_name == "change_hotel_guest_count":
+            return await backend.update_record(
+                tool_name, "booking", {"guest_count": kwargs.get("guest_count")}
+            )
+        if tool_name == "cancel_hotel_booking":
+            return await backend.update_record(
+                tool_name, "booking", {"status": "CANCELLED"}, action_status="CANCELLED"
+            )
+        if tool_name == "rebook_hotel_booking":
+            return await backend.update_record(
+                tool_name,
+                "booking",
+                {
+                    "status": "CONFIRMED",
+                    "check_in": kwargs.get("check_in"),
+                    "check_out": kwargs.get("check_out"),
+                },
+                action_status="REBOOKED",
+            )
+        return await super().invoke(backend, tool_name, **kwargs)
 
     def absorb(self, state: ResolutionState, result: ToolResult) -> None:
         p = result.payload

@@ -91,12 +91,23 @@ The division of labour is the architecture:
 - **Rime** owns speech — WebSocket streaming, with word timestamps.
 - **UNLOOP** owns belief — what is established, what was refuted, what is obsolete.
 
-The same engine is composed with one small domain adapter at call start. Banking is
-the primary stress demo, not a special engine path. Included adapters cover banking
-OTP delivery, e-commerce refund reconciliation, restaurant reservation support,
-salon appointment support, and hotel booking reconciliation. Booking or rescheduling
-is only a corrective action for the current case; these are not discovery, travel
-planning, or concierge assistants.
+The same engine is composed with one small domain adapter at call start. The domain
+chooses the bounded tool surface. An authoritative SQLite synthetic support sandbox
+stores ordinary records for the authenticated `DEMO-1001` customer across every
+domain. A separately selected test profile injects only reproducible latency/failure
+conditions; it is never injected as the customer's goal or record state.
+The shared intent router derives mutable `current_goal` state from each final caller
+utterance. Banking is the primary stress demo, not a special engine path. Included
+adapters cover banking, e-commerce, restaurant, salon, and hotel support. Booking or
+rescheduling is only a corrective action for an existing case; these are not
+discovery, travel-planning, or concierge assistants.
+
+Successful action tools commit real SQLite transactions and the customer-state card
+is rendered from the resulting sandbox snapshot. Every update also appends a before/
+after change record. Mutating tools perform a stale-fence check after injected delay
+but before beginning the transaction, so a superseded action is recorded as stale and
+cannot alter the authoritative state. The judge panel can deterministically restore
+the seed dataset with **Reset synthetic customer data**.
 
 LiveKit stopping the audio when the caller interrupts is necessary and **not
 sufficient**. The audio stops; the tool call issued four seconds ago is still in
@@ -105,7 +116,7 @@ state, and nothing in the media stack knows they are now wrong.
 
 ### The mechanism, in one paragraph
 
-Every caller correction increments an integer `state_version`. Every asynchronous
+Every caller correction or support-goal change increments an integer `state_version`. Every asynchronous
 thing — each tool call, each generated response — records the version it was born
 under. When a late result arrives, the fence compares the two and consults the version
 log: if a correction in between invalidated that result's *subject*, it is marked
@@ -178,10 +189,15 @@ cd apps/web && cp .env.example .env.local   # fill in LiveKit creds, keep AGENT_
 pnpm install && pnpm dev
 ```
 
-Open http://localhost:3000, choose a support scenario, and click **Start call**. The
-choice travels in LiveKit agent-dispatch metadata, so the worker selects the adapter
-and synthetic context before the voice session begins. The resolution panel appears on
-the right at viewport widths of 1024px and up.
+Open http://localhost:3000, choose a support domain and conversation language, then
+start the call and describe the issue naturally. Internal fixture selection is available
+only in test mode via `?demo=true` or `?debug=true`; fixture metadata never initializes
+the conversational goal.
+The domain and language choices travel in LiveKit agent-dispatch metadata, so the
+worker selects the adapter, synthetic context, multilingual STT mode, and compatible
+Rime voice before the voice session begins. English uses `en`/`eng`; Hindi uses
+Deepgram `hi` plus Rime `coda/hin/taru`. The resolution panel appears on the right at
+viewport widths of 1024px and up.
 
 On macOS or Linux use `agent/.venv/bin/python`. With [Task](https://taskfile.dev):
 `task dev-room` and `task web`.

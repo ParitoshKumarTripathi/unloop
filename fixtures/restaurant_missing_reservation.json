@@ -6,12 +6,15 @@
   "description": "Platform confirmation exists but the restaurant ledger has no booking.",
   "customer": {"customer_id": "demo_diner_001", "reservation_id": "RSV-DEMO-221"},
   "backend_state": {
+    "records": {
+      "reservation": {"reservation_id": "RSV-DEMO-221", "status": "CONFIRMED", "party_size": 4, "time": "8 PM"}
+    },
     "tool_results": {
       "check_platform_reservation": {"reservation_id": "RSV-DEMO-221", "platform_status": "CONFIRMED", "party_size": 4, "time": "19:30"},
       "check_restaurant_record": {"restaurant_status": "MISSING", "restaurant_reference": null},
       "rebook_reservation": {"action_status": "REBOOKED", "replacement_reference": "RSV-DEMO-221-R"}
     }
   },
-  "tool_delays_ms": {"check_platform_reservation": 800},
+  "tool_delays_ms": {"check_platform_reservation": 800, "check_restaurant_availability": 800},
   "expected_resolution": {"hypothesis": "RESERVATION_SYNC_FAILURE", "action": "rebook_reservation"}
 }
