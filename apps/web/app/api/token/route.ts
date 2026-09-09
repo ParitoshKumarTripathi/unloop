@@ -18,11 +18,33 @@ const LIVEKIT_URL = process.env.LIVEKIT_URL;
 export const revalidate = 0;
 
 export async function POST(req: Request) {
-  // make an exception for the vercel preview environment
-  if (process.env.NODE_ENV !== 'development' && process.env.IS_VERCEL_PREVIEW !== 'true') {
-    throw new Error(
-      'THIS API ROUTE IS INSECURE. DO NOT USE THIS ROUTE IN PRODUCTION WITHOUT AN AUTHENTICATION LAYER.'
-    );
+  const isProductionDemo =
+    process.env.NODE_ENV === 'production' && process.env.DEMO_MODE === 'true';
+
+  // Token minting is default-deny in production. The public synthetic demo must opt in
+  // explicitly; real deployments should replace this endpoint with authenticated issuance.
+  if (process.env.NODE_ENV !== 'development' && !isProductionDemo) {
+    return new NextResponse('LiveKit token issuance is disabled for this deployment.', {
+      status: 503,
+    });
+  }
+
+  // Public demo requests are expected to originate from this dashboard. This is an
+  // abuse-reduction check, not a replacement for authentication in a production system.
+  if (isProductionDemo) {
+    const origin = req.headers.get('origin');
+    const requestHost = new URL(req.url).host;
+    let originHost: string | undefined;
+
+    try {
+      originHost = origin ? new URL(origin).host : undefined;
+    } catch {
+      return new NextResponse('Invalid request origin.', { status: 403 });
+    }
+
+    if (!originHost || originHost !== requestHost) {
+      return new NextResponse('Cross-origin token requests are not allowed.', { status: 403 });
+    }
   }
 
   try {
