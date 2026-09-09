@@ -52,8 +52,11 @@ export default function RootLayout({ children }: RootLayoutProps) {
       )}
     >
       <head>
-        <title>LiveKit Voice Agent</title>
-        <meta name="description" content="A voice agent built with LiveKit" />
+        <title>UNLOOP — Adaptive Customer Support</title>
+        <meta
+          name="description"
+          content="An adaptive voice customer-support agent that investigates, takes action, and changes strategy when corrected."
+        />
       </head>
       <body className="overflow-x-hidden">
         <ThemeProvider

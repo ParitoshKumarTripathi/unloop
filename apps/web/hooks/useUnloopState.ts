@@ -211,6 +211,8 @@ export function useUnloopState(): UnloopState {
   const [data, setData] = useState<UnloopPayload | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const roomRef = useRef(room);
+  const sessionIdRef = useRef<string | null>(null);
+  const changeBaselineRef = useRef(0);
   roomRef.current = room;
 
   useEffect(() => {
@@ -224,8 +226,27 @@ export function useUnloopState(): UnloopState {
     ) => {
       if (topic !== STATE_TOPIC) return;
       try {
-        const parsed = JSON.parse(decoder.decode(payload)) as UnloopPayload;
+        let parsed = JSON.parse(decoder.decode(payload)) as UnloopPayload;
         if (parsed?.type === 'state') {
+          if (sessionIdRef.current !== parsed.state.session_id) {
+            sessionIdRef.current = parsed.state.session_id;
+            changeBaselineRef.current = Math.max(
+              0,
+              ...parsed.sandbox.recent_changes.map((change) => change.id)
+            );
+          }
+
+          // SQLite audit history persists across calls. Only changes newer than this
+          // call's first authoritative snapshot belong in its "Recent change" panel.
+          parsed = {
+            ...parsed,
+            sandbox: {
+              ...parsed.sandbox,
+              recent_changes: parsed.sandbox.recent_changes.filter(
+                (change) => change.id > changeBaselineRef.current
+              ),
+            },
+          };
           setData(parsed);
           setLastUpdate(Date.now());
         }
@@ -247,6 +268,8 @@ export function useUnloopState(): UnloopState {
     if (!session.isConnected) {
       setData(null);
       setLastUpdate(null);
+      sessionIdRef.current = null;
+      changeBaselineRef.current = 0;
     }
   }, [session.isConnected]);
 

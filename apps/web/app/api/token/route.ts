@@ -58,8 +58,10 @@ export async function POST(req: Request) {
       throw new Error('LIVEKIT_API_SECRET is not defined');
     }
 
-    // Parse room config from request body.
-    const body = await req.json();
+    // Some browsers warm the endpoint before a room configuration is available.
+    // Treat an empty preconnect body as the default configuration.
+    const rawBody = await req.text();
+    const body = rawBody ? JSON.parse(rawBody) : {};
     const roomConfig = body?.room_config
       ? RoomConfiguration.fromJson(body.room_config, { ignoreUnknownFields: true })
       : new RoomConfiguration();

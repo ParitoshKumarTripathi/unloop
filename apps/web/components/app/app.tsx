@@ -6,6 +6,7 @@ import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
+import { BrandMark } from '@/components/app/brand-mark';
 import { ThemeToggle } from '@/components/app/theme-toggle';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
@@ -27,17 +28,7 @@ function LocalizedChrome() {
   return (
     <>
       <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-        <a
-          target="_blank"
-          rel="noopener noreferrer"
-          href="https://livekit.io"
-          className="scale-100 transition-transform duration-300 hover:scale-110"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/lk-logo.svg" alt="LiveKit" className="block size-6 dark:hidden" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/lk-logo-dark.svg" alt="LiveKit" className="hidden size-6 dark:block" />
-        </a>
+        <BrandMark compact />
         <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
           {t('chrome.builtWith', 'Built with')}{' '}
           <a
@@ -102,7 +93,7 @@ export function App({ agentName, demoMode = true }: AppProps) {
       <I18nProvider language={selectedLanguage}>
         <LocalizedChrome />
         <AppSetup />
-        <main className="grid h-svh grid-cols-1 place-content-center">
+        <main className="min-h-svh w-full max-w-[100vw] overflow-x-hidden overflow-y-auto">
           <ViewController
             demoMode={demoMode}
             selectedDomain={selectedDomain}

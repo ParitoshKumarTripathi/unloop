@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';
 import { WelcomeView } from '@/components/app/welcome-view';
-import { DebugPanel } from '@/components/unloop/debug-panel';
+import { DebugPanel, MobileCustomerStatePanel } from '@/components/unloop/debug-panel';
 import { useI18n } from '@/lib/i18n';
 
 const MotionWelcomeView = motion.create(WelcomeView);
@@ -86,7 +86,7 @@ export function ViewController({
         <motion.div
           key="session-with-panel"
           {...VIEW_MOTION_PROPS}
-          className="fixed inset-0 grid grid-cols-1 lg:grid-cols-[1fr_420px]"
+          className="fixed inset-0 grid grid-cols-1 grid-rows-[56svh_44svh] lg:grid-cols-[1fr_420px] lg:grid-rows-1"
         >
           <div className="relative min-h-0">
             <MotionSessionView
@@ -101,6 +101,9 @@ export function ViewController({
           </div>
           <div className="hidden min-h-0 lg:block">
             <DebugPanel demoMode={demoMode} />
+          </div>
+          <div className="min-h-0 lg:hidden">
+            <MobileCustomerStatePanel />
           </div>
         </motion.div>
       )}

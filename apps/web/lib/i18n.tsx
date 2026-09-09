@@ -6,6 +6,7 @@ export type UiLanguage = 'english' | 'hindi';
 
 const HI: Record<string, string> = {
   'brand.kicker': 'अनलूप समाधान एजेंट',
+  'brand.tagline': 'सुलझाएँ। बदलें। आगे बढ़ें।',
   'chrome.builtWith': 'इसके साथ बनाया गया',
   'theme.toggle': 'रंग योजना बदलें',
   'theme.dark': 'गहरी रंग योजना चालू करें',
@@ -52,6 +53,11 @@ const HI: Record<string, string> = {
   'session.guide': 'त्वरित आरंभ मार्गदर्शिका देखें',
   'debug.waiting': 'एजेंट की समाधान स्थिति की प्रतीक्षा हो रही है।',
   'debug.start': 'शुरू करने के लिए कॉल चालू करें।',
+  'customer.kicker': 'लाइव बैकएंड रिकॉर्ड',
+  'customer.title': 'वर्तमान ग्राहक स्थिति',
+  'customer.source': 'आधिकारिक SQLite सैंडबॉक्स',
+  'customer.synthetic': 'सिंथेटिक',
+  'customer.recentChange': 'हाल का बदलाव',
   'debug.issue': 'समस्या',
   'debug.turn': 'बारी',
   'debug.session': 'सत्र',
@@ -326,7 +332,8 @@ export function I18nProvider({ language, children }: { language: string; childre
   const resolved: UiLanguage = language === 'hindi' ? 'hindi' : 'english';
   useEffect(() => {
     document.documentElement.lang = resolved === 'hindi' ? 'hi' : 'en';
-    document.title = resolved === 'hindi' ? 'अनलूप वॉइस सहायता' : 'LiveKit Voice Agent';
+    document.title =
+      resolved === 'hindi' ? 'अनलूप — अनुकूल ग्राहक सहायता' : 'UNLOOP — Adaptive Customer Support';
   }, [resolved]);
 
   const value = useMemo<I18nValue>(() => {

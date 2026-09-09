@@ -89,6 +89,24 @@ export function DebugPanel({ demoMode = true }: { demoMode?: boolean }) {
   );
 }
 
+/** Mobile keeps the customer-facing proof visible without squeezing in raw telemetry. */
+export function MobileCustomerStatePanel() {
+  const { data, connected } = useUnloopState();
+  const { t } = useI18n();
+
+  return (
+    <aside className="bg-muted/30 h-full overflow-y-auto border-t border-sky-500/20 px-3 pt-3 pb-6">
+      {connected && data ? (
+        <CustomerStateCard sandbox={data.sandbox} />
+      ) : (
+        <div className="border-muted-foreground/30 text-muted-foreground rounded-xl border border-dashed p-4 text-center text-[11px]">
+          {t('debug.waiting', 'Waiting for the agent to publish its resolution state.')}
+        </div>
+      )}
+    </aside>
+  );
+}
+
 /**
  * Demo controls.
  *
