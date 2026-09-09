@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import sys
 import time
 from collections.abc import AsyncGenerator, AsyncIterable
 from typing import Any
@@ -34,6 +35,7 @@ from livekit.agents import (
     AgentServer,
     AgentSession,
     JobContext,
+    JobExecutorType,
     ModelSettings,
     RunContext,
     TurnHandlingOptions,
@@ -1077,13 +1079,37 @@ def _split_sentence(buffer: str) -> tuple[str | None, str]:
     return None, buffer
 
 
-server = AgentServer()
+# A Windows thread executor reuses one native LiveKit FFI instance across calls.
+# The underlying WebRTC FFT cache is process-global and can assert when a later
+# room initializes audio with a different transform size. Isolating every job in
+# its own process avoids carrying native audio state between calls. PROCESS is
+# already LiveKit's default on Linux, so making it explicit keeps deployment
+# behavior unchanged while making consecutive local Windows calls reliable.
+server = AgentServer(job_executor_type=JobExecutorType.PROCESS)
+
+
+def _warm_windows_resampler_cache() -> None:
+    """Initialize SoXR serially before LiveKit starts concurrent room audio.
+
+    LiveKit's Windows FFI bundles SoXR with a process-global FFT cache. During a
+    cold start, simultaneous input/output resamplers can race in that cache and
+    trigger a native assertion dialog. Creating the two rates used by this app in
+    sequence makes subsequent room initialization hit the already-initialized path.
+    """
+    if not sys.platform.startswith("win"):
+        return
+    for input_rate, output_rate in ((48_000, 16_000), (24_000, 48_000)):
+        resampler = rtc.AudioResampler(input_rate, output_rate, num_channels=1)
+        resampler.push(bytearray(input_rate // 100 * 2))
+        resampler.flush()
 
 
 @server.rtc_session(agent_name="unloop")
 async def unloop_session(ctx: JobContext) -> None:
     config = AppConfig.from_env()
     logging.getLogger().setLevel(config.log_level)
+
+    _warm_windows_resampler_cache()
 
     problems = config.rime.validate()
     if problems:
