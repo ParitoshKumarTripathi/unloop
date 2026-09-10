@@ -1,0 +1,7 @@
+# Root marker for deployment tools that require a Python manifest beside the
+# repository-level Dockerfile. The authoritative locked dependencies remain in
+# agent/pyproject.toml and agent/uv.lock.
+-e ./agent
+# Explicit marker used by LiveKit's project detector; installation is still
+# resolved from the editable agent package above.
+livekit-agents==1.8.0
