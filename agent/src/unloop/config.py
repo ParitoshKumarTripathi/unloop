@@ -224,13 +224,13 @@ class STTConfig:
 @dataclass(frozen=True)
 class LLMConfig:
     provider: str = "inference"
-    model: str = "openai/gpt-4.1-mini"
+    model: str = "openai/gpt-5.6-luna"
 
     @classmethod
     def from_env(cls) -> LLMConfig:
         return cls(
             provider=_env("LLM_PROVIDER") or "inference",
-            model=_env("LLM_MODEL") or "openai/gpt-4.1-mini",
+            model=_env("LLM_MODEL") or "openai/gpt-5.6-luna",
         )
 
 
