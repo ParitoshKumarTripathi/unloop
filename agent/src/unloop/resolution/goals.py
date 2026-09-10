@@ -77,9 +77,11 @@ _GOAL_HINTS: dict[str, re.Pattern[str]] = {
     ),
     "resolve_otp": re.compile(r"(?:ओटीपी|वन.?टाइम|कोड)", re.IGNORECASE),
     "verify_card": re.compile(r"(?:कार्ड).*(?:स्थिति|ब्लॉक|चालू|पेमेंट)", re.IGNORECASE),
+    "manage_card_security": re.compile(r"(?:कार्ड).*(?:ब्लॉक|बंद|लॉक|बदल|रिप्लेस)", re.IGNORECASE),
     "resolve_refund": re.compile(r"(?:रिफंड|पैसे वापस|क्रेडिट)", re.IGNORECASE),
     "cancel_order": re.compile(r"(?:ऑर्डर).*(?:रद्द|कैंसल)|(?:रद्द|कैंसल).*(?:ऑर्डर)", re.IGNORECASE),
     "return_order": re.compile(r"(?:रिटर्न|वापस भेज|गलत सामान|खराब सामान)", re.IGNORECASE),
+    "replace_order_item": re.compile(r"(?:ऑर्डर|सामान).*(?:बदल|रिप्लेस|एक्सचेंज)", re.IGNORECASE),
     "change_party_size": re.compile(r"(?:लोग|व्यक्ति|मेहमान|पार्टी)", re.IGNORECASE),
     "cancel_reservation": re.compile(
         r"(?:रिजर्वेशन|बुकिंग).*(?:रद्द|कैंसल)|(?:रद्द|कैंसल).*(?:रिजर्वेशन|बुकिंग)", re.IGNORECASE
@@ -100,6 +102,10 @@ _GOAL_HINTS: dict[str, re.Pattern[str]] = {
     ),
     "change_booking_dates": re.compile(r"(?:तारीख|चेक.?इन|चेक.?आउट).*(?:बदल|आगे|पीछे)", re.IGNORECASE),
     "resolve_booking_mismatch": re.compile(r"(?:होटल).*(?:नहीं मिल|गायब|गलत)", re.IGNORECASE),
+    "rebook_reservation": re.compile(r"(?:फिर से|दोबारा).*(?:रिजर्वेशन|बुकिंग|बुक)", re.IGNORECASE),
+    "rebook_appointment": re.compile(r"(?:फिर से|दोबारा).*(?:अपॉइंटमेंट|बुक)", re.IGNORECASE),
+    "rebook_booking": re.compile(r"(?:फिर से|दोबारा).*(?:होटल|बुकिंग|बुक)", re.IGNORECASE),
+    "change_guest_count": re.compile(r"(?:मेहमान|लोग).*(?:बदल|कर दो|करें)", re.IGNORECASE),
 }
 
 
@@ -148,10 +154,13 @@ class GoalRouter:
         if best is None:
             return None
         definition = best[2]
+        parameters = _extract_parameters(transcript)
+        if definition.id == "change_guest_count" and "party_size" in parameters:
+            parameters["guest_count"] = parameters.pop("party_size")
         return SupportGoal(
             id=definition.id,
             label=definition.label,
             raw_utterance=transcript,
-            parameters=_extract_parameters(transcript),
+            parameters=parameters,
             subjects=definition.subjects,
         )

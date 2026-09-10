@@ -264,17 +264,28 @@ class SupportBackend:
         """Synthetic corrective resend after delivery failure has been confirmed."""
 
         def handler() -> dict[str, Any]:
+            current = self.sandbox.get_record(DEMO_CUSTOMER_ID, "banking", "otp")
+            if current and current.get("delivery_status") == "DELIVERED":
+                return {
+                    "customer_id": customer_id,
+                    "action_status": "ALREADY_DELIVERED",
+                    "otp_delivery_status": "DELIVERED",
+                    "already_in_requested_state": True,
+                    "changed": False,
+                }
             self.sandbox.update_record(
                 DEMO_CUSTOMER_ID,
                 "banking",
                 "otp",
                 {"delivery_status": "DELIVERED", "failure_reason": None},
                 action="resend_otp",
+                allow_nulls=True,
             )
             return {
                 "customer_id": customer_id,
                 "action_status": "RESENT",
                 "otp_delivery_status": "DELIVERED",
+                "changed": True,
             }
 
         return await self.call("resend_otp", handler, mutates=True)

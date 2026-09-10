@@ -140,6 +140,20 @@ class FixtureSupportBackend:
         action_status: str = "UPDATED",
     ) -> tuple[ToolResult, FenceDecision]:
         def handler() -> dict[str, Any]:
+            current = self.sandbox.get_record(self.customer_id, self.fixture.domain, record_key)
+            supplied = {key: value for key, value in changes.items() if value is not None}
+            if (
+                current is not None
+                and supplied
+                and all(current.get(key) == value for key, value in supplied.items())
+            ):
+                return {
+                    "customer_id": self.fixture.customer_id,
+                    "action_status": f"ALREADY_{action_status}",
+                    "already_in_requested_state": True,
+                    "changed": False,
+                    **current,
+                }
             record = self.sandbox.update_record(
                 self.customer_id,
                 self.fixture.domain,
@@ -150,6 +164,7 @@ class FixtureSupportBackend:
             return {
                 "customer_id": self.fixture.customer_id,
                 "action_status": action_status,
+                "changed": True,
                 **dict(record),
             }
 

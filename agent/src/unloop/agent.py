@@ -318,16 +318,26 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("check_restaurant_record")
 
     @function_tool
-    async def check_restaurant_availability(self, context: RunContext, requested_time: str) -> str:
-        """Check availability at a requested time for the customer's existing reservation."""
+    async def check_restaurant_availability(
+        self, context: RunContext, requested_time: str, requested_date: str = ""
+    ) -> str:
+        """Check a requested date/time. Pass YYYY-MM-DD and clock time as separate values."""
         return await self.engine.run_tool(
-            "check_restaurant_availability", requested_time=requested_time
+            "check_restaurant_availability",
+            requested_date=requested_date or None,
+            requested_time=requested_time,
         )
 
     @function_tool
-    async def reschedule_restaurant_reservation(self, context: RunContext, new_time: str) -> str:
-        """Move the existing reservation after confirming the desired time."""
-        return await self.engine.run_tool("reschedule_restaurant_reservation", new_time=new_time)
+    async def reschedule_restaurant_reservation(
+        self, context: RunContext, new_time: str = "", new_date: str = ""
+    ) -> str:
+        """Move a reservation. Pass YYYY-MM-DD in new_date and only clock time in new_time."""
+        return await self.engine.run_tool(
+            "reschedule_restaurant_reservation",
+            new_date=new_date or None,
+            new_time=new_time or None,
+        )
 
     @function_tool
     async def change_restaurant_party_size(self, context: RunContext, party_size: int) -> str:
@@ -355,14 +365,24 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("check_appointment_history")
 
     @function_tool
-    async def reschedule_appointment(self, context: RunContext, new_time: str = "") -> str:
-        """Correctively reschedule the affected appointment."""
-        return await self.engine.run_tool("reschedule_appointment", new_time=new_time or None)
+    async def reschedule_appointment(
+        self, context: RunContext, new_time: str = "", new_date: str = ""
+    ) -> str:
+        """Reschedule an appointment with YYYY-MM-DD date and clock time kept separate."""
+        return await self.engine.run_tool(
+            "reschedule_appointment", new_date=new_date or None, new_time=new_time or None
+        )
 
     @function_tool
-    async def check_salon_availability(self, context: RunContext, requested_time: str) -> str:
-        """Check salon availability for a requested corrective appointment time."""
-        return await self.engine.run_tool("check_salon_availability", requested_time=requested_time)
+    async def check_salon_availability(
+        self, context: RunContext, requested_time: str, requested_date: str = ""
+    ) -> str:
+        """Check salon availability with YYYY-MM-DD date and clock time kept separate."""
+        return await self.engine.run_tool(
+            "check_salon_availability",
+            requested_date=requested_date or None,
+            requested_time=requested_time,
+        )
 
     @function_tool
     async def change_appointment_service(self, context: RunContext, service: str) -> str:
@@ -375,9 +395,13 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("cancel_appointment")
 
     @function_tool
-    async def rebook_appointment(self, context: RunContext, new_time: str) -> str:
-        """Rebook an affected appointment at a requested time."""
-        return await self.engine.run_tool("rebook_appointment", new_time=new_time)
+    async def rebook_appointment(
+        self, context: RunContext, new_time: str, new_date: str = ""
+    ) -> str:
+        """Rebook with YYYY-MM-DD date and clock time kept in separate fields."""
+        return await self.engine.run_tool(
+            "rebook_appointment", new_date=new_date or None, new_time=new_time
+        )
 
     @function_tool
     async def list_appointments(self, context: RunContext) -> str:
@@ -414,10 +438,12 @@ class UnloopAgent(Agent):
         )
 
     @function_tool
-    async def change_hotel_dates(self, context: RunContext, check_in: str, check_out: str) -> str:
-        """Change dates on the customer's existing hotel booking."""
+    async def change_hotel_dates(
+        self, context: RunContext, check_in: str = "", check_out: str = ""
+    ) -> str:
+        """Change either hotel date using separate YYYY-MM-DD values; omitted date stays unchanged."""
         return await self.engine.run_tool(
-            "change_hotel_dates", check_in=check_in, check_out=check_out
+            "change_hotel_dates", check_in=check_in or None, check_out=check_out or None
         )
 
     @function_tool
@@ -431,10 +457,12 @@ class UnloopAgent(Agent):
         return await self.engine.run_tool("cancel_hotel_booking")
 
     @function_tool
-    async def rebook_hotel_booking(self, context: RunContext, check_in: str, check_out: str) -> str:
-        """Rebook an affected hotel stay for requested dates."""
+    async def rebook_hotel_booking(
+        self, context: RunContext, check_in: str = "", check_out: str = ""
+    ) -> str:
+        """Rebook using separate YYYY-MM-DD dates; omitted date retains the existing value."""
         return await self.engine.run_tool(
-            "rebook_hotel_booking", check_in=check_in, check_out=check_out
+            "rebook_hotel_booking", check_in=check_in or None, check_out=check_out or None
         )
 
     @function_tool
@@ -596,7 +624,7 @@ class ResolutionEngine:
             )
         if definition.corrective_action and definition.requires_hypothesis:
             hypothesis = self.state.get_hypothesis(definition.requires_hypothesis)
-            if hypothesis is None or hypothesis.status.value != "SUPPORTED":
+            if hypothesis is None or hypothesis.status.value not in {"SUPPORTED", "RESOLVED"}:
                 return "That corrective action is premature. Complete the relevant support checks first."
 
         result, decision = await self.adapter.invoke(self.backend, tool_name, **kwargs)
@@ -621,6 +649,8 @@ class ResolutionEngine:
 
         self._absorb(result)
         await self.publish_state()
+        if result.payload.get("already_in_requested_state"):
+            return "The requested state is already in place. Nothing needed changing."
         return self.adapter.describe(result)
 
     def _absorb(self, result: Any) -> None:
@@ -718,6 +748,12 @@ class ResolutionEngine:
             changed = state.set_current_goal(detected_goal, bump=not bool(extractions))
             if changed:
                 state.loop_score = 0
+            if detected_goal.id in self.adapter.escalation_goal_ids:
+                state.set_escalation(
+                    EscalationStatus.RECOMMENDED,
+                    reason=f"{detected_goal.label} requires human support",
+                )
+                state.set_strategy("escalate", reason="supported request requires human action")
 
         self.loop_detector.note_turn()
         assessment = self.loop_detector.assess()

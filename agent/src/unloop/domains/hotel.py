@@ -8,6 +8,7 @@ from ..resolution.hypotheses import Hypothesis
 from ..resolution.state import ResolutionState
 from ..tools.types import Subject, ToolResult
 from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, goal, rx
+from .scheduling import target_date_range
 
 
 class HotelAdapter(DomainAdapter):
@@ -40,12 +41,12 @@ class HotelAdapter(DomainAdapter):
         ToolDefinition(
             "check_hotel_availability",
             Subject.BOOKING,
-            "check availability for requested booking dates",
+            "check availability using separate YYYY-MM-DD check-in and check-out values",
         ),
         ToolDefinition(
             "change_hotel_dates",
             Subject.BOOKING,
-            "change dates on an existing booking",
+            "change check-in and/or check-out with separate YYYY-MM-DD values",
             True,
             goal_ids=frozenset({"change_booking_dates"}),
         ),
@@ -81,25 +82,25 @@ class HotelAdapter(DomainAdapter):
         goal(
             "change_guest_count",
             "Change the guest count on a hotel booking",
-            r"\b(?:change|make|update|increase|decrease|add|remove)\b.*\b(?:guest|people|party size)\b",
+            r"\b(?:change|make|update|increase|decrease|add|remove)\b.*\b(?:guests?|people|party size)\b",
             subjects=frozenset({Subject.BOOKING}),
         ),
         goal(
             "cancel_booking",
             "Cancel an existing hotel booking",
-            r"\bcancel\b.*\b(?:hotel|booking|reservation)\b",
+            r"\bcancel\b.*\b(?:hotel|booking|reservation|it)\b",
             subjects=frozenset({Subject.BOOKING}),
         ),
         goal(
             "rebook_booking",
             "Rebook an affected hotel stay",
-            r"\b(?:rebook|book again|replacement)\b",
+            r"\b(?:rebook|book(?:\s+it)? again|replacement)\b",
             subjects=frozenset({Subject.BOOKING, Subject.PARTNER_RECORD}),
         ),
         goal(
             "change_booking_dates",
             "Change dates on an existing hotel booking",
-            r"\b(?:change|move|extend|shorten|postpone)\b.*\b(?:date|stay|booking|check.?in|check.?out)\b",
+            r"\b(?:change|move|extend|shorten|prepone|postpone)\b.*\b(?:date|stay|booking|check.?in|check.?out)\b|\b(?:extend|shorten|prepone|postpone)\b",
             subjects=frozenset({Subject.BOOKING}),
         ),
         goal(
@@ -224,6 +225,15 @@ class HotelAdapter(DomainAdapter):
         if tool_name == "reconcile_hotel_booking":
 
             def reconcile():
+                current = backend.sandbox.get_record(backend.customer_id, self.domain_id, "booking")
+                if current.get("partner_status") == "FOUND":
+                    return {
+                        "customer_id": backend.customer_id,
+                        "action_status": "ALREADY_RECONCILED",
+                        "already_in_requested_state": True,
+                        "changed": False,
+                        **current,
+                    }
                 record = backend.sandbox.update_record(
                     backend.customer_id,
                     self.domain_id,
@@ -231,27 +241,34 @@ class HotelAdapter(DomainAdapter):
                     {"partner_status": "FOUND"},
                     action=tool_name,
                 )
-                return {"customer_id": backend.customer_id, "action_status": "RECONCILED", **record}
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": "RECONCILED",
+                    "changed": True,
+                    **record,
+                }
 
             return await backend.call(tool_name, reconcile, mutates=True)
         if tool_name == "check_hotel_availability":
 
             def availability():
                 record = backend.sandbox.get_record(backend.customer_id, self.domain_id, "booking")
+                check_in, check_out = target_date_range(
+                    record,
+                    check_in=kwargs.get("check_in"),
+                    check_out=kwargs.get("check_out"),
+                )
                 return {
                     "customer_id": backend.customer_id,
-                    "availability": "AVAILABLE",
                     "hotel": record["hotel"],
-                    **kwargs,
+                    **backend.sandbox.check_date_range_availability(
+                        self.domain_id, record["hotel"], check_in, check_out
+                    ),
                 }
 
             return await backend.call(tool_name, availability)
         if tool_name == "change_hotel_dates":
-            return await backend.update_record(
-                tool_name,
-                "booking",
-                {"check_in": kwargs.get("check_in"), "check_out": kwargs.get("check_out")},
-            )
+            return await self._change_dates(backend, tool_name, "UPDATED", **kwargs)
         if tool_name == "change_hotel_guest_count":
             return await backend.update_record(
                 tool_name, "booking", {"guest_count": kwargs.get("guest_count")}
@@ -261,17 +278,59 @@ class HotelAdapter(DomainAdapter):
                 tool_name, "booking", {"status": "CANCELLED"}, action_status="CANCELLED"
             )
         if tool_name == "rebook_hotel_booking":
-            return await backend.update_record(
-                tool_name,
-                "booking",
-                {
-                    "status": "CONFIRMED",
-                    "check_in": kwargs.get("check_in"),
-                    "check_out": kwargs.get("check_out"),
-                },
-                action_status="REBOOKED",
-            )
+            return await self._change_dates(backend, tool_name, "REBOOKED", rebook=True, **kwargs)
         return await super().invoke(backend, tool_name, **kwargs)
+
+    async def _change_dates(
+        self, backend, tool_name: str, action_status: str, *, rebook: bool = False, **kwargs
+    ):
+        def change():
+            current = backend.sandbox.get_record(backend.customer_id, self.domain_id, "booking")
+            check_in, check_out = target_date_range(
+                current,
+                check_in=kwargs.get("check_in"),
+                check_out=kwargs.get("check_out"),
+            )
+            desired_status = "CONFIRMED" if rebook else current["status"]
+            if (
+                current["check_in"] == check_in
+                and current["check_out"] == check_out
+                and current["status"] == desired_status
+            ):
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": f"ALREADY_{action_status}",
+                    "already_in_requested_state": True,
+                    "changed": False,
+                    **current,
+                }
+            availability = backend.sandbox.check_date_range_availability(
+                self.domain_id, current["hotel"], check_in, check_out
+            )
+            if availability["availability"] != "AVAILABLE":
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": "UNAVAILABLE",
+                    "requested_check_in": check_in,
+                    "requested_check_out": check_out,
+                    "unavailable_dates": availability["unavailable_dates"],
+                    **current,
+                }
+            updated = backend.sandbox.update_record(
+                backend.customer_id,
+                self.domain_id,
+                "booking",
+                {"status": desired_status, "check_in": check_in, "check_out": check_out},
+                action=tool_name,
+            )
+            return {
+                "customer_id": backend.customer_id,
+                "action_status": action_status,
+                "changed": True,
+                **updated,
+            }
+
+        return await backend.call(tool_name, change, mutates=True)
 
     def absorb(self, state: ResolutionState, result: ToolResult) -> None:
         p = result.payload
@@ -325,4 +384,21 @@ class HotelAdapter(DomainAdapter):
             return f"The hotel's record is {p.get('hotel_status', 'unknown')}."
         if result.tool_name == "reconcile_hotel_booking":
             return f"The hotel reconciliation is {p.get('action_status', 'unknown')}."
+        if result.tool_name == "check_hotel_availability":
+            return (
+                f"The stay from {p.get('check_in')} to {p.get('check_out')} is "
+                f"{str(p.get('availability', 'unknown')).lower()}."
+            )
+        if result.tool_name in {"change_hotel_dates", "rebook_hotel_booking"}:
+            if p.get("action_status") == "UNAVAILABLE":
+                return (
+                    f"The requested stay from {p.get('requested_check_in')} through "
+                    f"{p.get('requested_check_out')} is unavailable. Nothing was changed."
+                )
+            return (
+                f"The booking dates are now {p.get('check_in')} through {p.get('check_out')}; "
+                f"the action is {str(p.get('action_status', 'updated')).lower()}."
+            )
+        if result.tool_name == "change_hotel_guest_count":
+            return f"The hotel guest count is now {p.get('guest_count')}."
         return super().describe(result)

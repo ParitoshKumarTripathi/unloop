@@ -129,8 +129,15 @@ class BankingAdapter(DomainAdapter):
             r"\b(?:registered mobile|phone number|mobile number)\b",
             subjects=frozenset({Subject.MOBILE}),
         ),
+        goal(
+            "manage_card_security",
+            "Escalate a card block, freeze, or replacement request",
+            r"\b(?:block|freeze|lock|replace)\b.*\b(?:card|debit card)\b|\b(?:card|debit card)\b.*\b(?:block|freeze|lock|replacement)\b",
+            subjects=frozenset({Subject.CARD, Subject.CASE}),
+        ),
     )
     diagnostic_goal_ids = frozenset({"resolve_otp"})
+    escalation_goal_ids = frozenset({"manage_card_security"})
     hypothesis_subjects = _HYPOTHESIS_SUBJECTS
     denial_rules = _DENIALS
     evidence_patterns = _EVIDENCE_PATTERNS

@@ -69,6 +69,7 @@ class DomainAdapter(ABC):
     tools: tuple[ToolDefinition, ...]
     goals: tuple[GoalDefinition, ...] = ()
     diagnostic_goal_ids: frozenset[str] = frozenset()
+    escalation_goal_ids: frozenset[str] = frozenset()
     hypothesis_subjects: dict[str, frozenset[Subject]]
     denial_rules: tuple[tuple[str, re.Pattern[str], frozenset[Subject]], ...] = ()
     evidence_patterns: tuple[tuple[re.Pattern[str], str], ...] = ()
@@ -191,6 +192,15 @@ take a corrective action when the evidence supports it, and escalate with full c
 # Scope
 - {self.safety_boundary}
 - All records here are synthetic demo data. Never request passwords, payment credentials, or codes.
+
+# Corrective-action integrity
+- Read the current record before changing it; do not invent an omitted value.
+- Keep dates, clock times, counts, amounts, statuses, and identifiers in their separate tool fields.
+- Use YYYY-MM-DD for a date and a clock value such as 6:00 PM for a time. Never put a date inside a time field.
+- If the customer gives an ambiguous target, ask one clarifying question before acting.
+- If availability is unavailable or a tool rejects an invalid value, say nothing changed and ask for a valid alternative.
+- If a supported request already matches the backend record, explain that it is already done; do not report a failure.
+- If an in-domain request has no automated tool, say so honestly and escalate with the conversation context.
 
 # Available support operations
 {tool_lines}

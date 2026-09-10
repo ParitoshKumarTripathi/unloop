@@ -11,6 +11,7 @@ import re
 import sqlite3
 import threading
 import time
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -137,12 +138,146 @@ _SEED: dict[str, list[tuple[str, str, dict[str, Any]]]] = {
     ],
 }
 
-_AVAILABILITY = [
-    ("restaurant", "Demo Bistro", "2026-09-12", "7:00 PM", 1),
-    ("restaurant", "Demo Bistro", "2026-09-12", "8:00 PM", 1),
-    ("salon", "Demo Studio", "2026-09-15", "3:00 PM", 1),
-    ("salon", "Demo Studio", "2026-09-15", "4:00 PM", 1),
-]
+
+def _build_availability_seed() -> list[tuple[str, str, str, str, int]]:
+    rows: list[tuple[str, str, str, str, int]] = []
+    restaurant_times = ("6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM")
+    salon_times = (
+        "10:00 AM",
+        "11:00 AM",
+        "12:00 PM",
+        "1:00 PM",
+        "2:00 PM",
+        "3:00 PM",
+        "4:00 PM",
+        "5:00 PM",
+        "6:00 PM",
+    )
+    start = date(2026, 9, 11)
+    for offset in range(60):
+        day = start + timedelta(days=offset)
+        rows.extend(
+            ("restaurant", "Demo Bistro", day.isoformat(), slot, 1) for slot in restaurant_times
+        )
+        if day.weekday() == 6:  # Demo Studio is closed on Sundays.
+            pass
+        else:
+            rows.extend(("salon", "Demo Studio", day.isoformat(), slot, 1) for slot in salon_times)
+        rows.append(("hotel", "Demo Grand", day.isoformat(), "NIGHT", 1))
+    return rows
+
+
+_AVAILABILITY = _build_availability_seed()
+
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
+_CLOCK_TIME = re.compile(
+    r"(?:[01]?\d|2[0-3]):[0-5]\d|(?:0?[1-9]|1[0-2])(?::[0-5]\d)?\s?(?:AM|PM)\Z",
+    re.IGNORECASE,
+)
+
+
+_STATUS_VALUES = {
+    "status": {
+        "ACTIVE",
+        "BLOCKED",
+        "CANCELLED",
+        "CHANGED",
+        "CONFIRMED",
+        "DEGRADED",
+        "DECLINED",
+        "DELIVERED",
+        "DOWN",
+        "FAILED",
+        "MISSING",
+        "OUTAGE",
+        "PENDING",
+    },
+    "partner_status": {"FOUND", "MISSING", "CONFLICT"},
+    "online_transactions": {"ENABLED", "DISABLED"},
+    "registered_mobile_status": {"VERIFIED", "UNVERIFIED"},
+    "generation_status": {"SUCCESS", "FAILED", "PENDING"},
+    "delivery_status": {"SUCCESS", "DELIVERED", "FAILED", "PENDING"},
+    "payment_status": {"PAID", "PENDING", "FAILED", "REFUNDED"},
+    "return_status": {"NONE", "REQUESTED", "APPROVED", "COMPLETED", "REJECTED"},
+    "processing_status": {"PROCESSED", "PROCESSING", "REISSUED", "FAILED"},
+    "settlement_status": {"PENDING", "PROCESSING", "SETTLED", "FAILED", "STALLED"},
+}
+
+
+def _validate_record_fields(data: dict[str, Any]) -> None:
+    """Keep malformed model arguments out of authoritative customer state."""
+    for field in ("date", "check_in", "check_out"):
+        value = data.get(field)
+        if value not in (None, ""):
+            rendered = str(value).strip()
+            if not _ISO_DATE.fullmatch(rendered):
+                raise ValueError(f"{field} must be a separate YYYY-MM-DD value")
+            try:
+                date.fromisoformat(rendered)
+            except ValueError as exc:
+                raise ValueError(f"{field} must be a valid calendar date") from exc
+
+    time_value = data.get("time")
+    if time_value not in (None, "") and not _CLOCK_TIME.fullmatch(str(time_value).strip()):
+        raise ValueError("time must contain only a clock time, never a date")
+
+    for field in ("party_size", "guest_count"):
+        value = data.get(field)
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+            raise ValueError(f"{field} must be a whole number")
+        if value is not None and not 1 <= value <= 20:
+            raise ValueError(f"{field} must be between 1 and 20")
+
+    if data.get("check_in") and data.get("check_out") and data["check_out"] <= data["check_in"]:
+        raise ValueError("hotel check-out must be after check-in")
+
+    for field, allowed in _STATUS_VALUES.items():
+        value = data.get(field)
+        if value is not None and str(value).upper() not in allowed:
+            raise ValueError(f"invalid {field} value")
+
+    for field, value in data.items():
+        if field.endswith("_id") and value not in (None, ""):
+            rendered = str(value)
+            if not re.fullmatch(r"[A-Z][A-Z0-9-]{2,39}", rendered):
+                raise ValueError(f"invalid synthetic identifier in {field}")
+
+    for field in (
+        "customer",
+        "guest",
+        "restaurant",
+        "salon",
+        "hotel",
+        "service",
+        "provider",
+        "room_type",
+        "item",
+        "merchant",
+    ):
+        value = data.get(field)
+        if value is None:
+            continue
+        rendered = str(value).strip()
+        if not rendered or len(rendered) > 80 or any(char in rendered for char in "\r\n"):
+            raise ValueError(f"invalid {field} value")
+        if field == "service" and (
+            _ISO_DATE.search(rendered) or re.search(r"\d{1,2}:\d{2}\s*(?:AM|PM)", rendered, re.I)
+        ):
+            raise ValueError("service must contain a service name, not a date or time")
+
+    last4 = data.get("last4")
+    if last4 is not None and not re.fullmatch(r"\d{4}", str(last4)):
+        raise ValueError("last4 must contain exactly four digits")
+
+    amount = data.get("amount")
+    if amount is not None:
+        rendered = str(amount).strip()
+        if (
+            isinstance(amount, bool)
+            or not isinstance(amount, (int, float, str))
+            or not re.fullmatch(r"(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?", rendered)
+        ):
+            raise ValueError("invalid amount value")
 
 
 class SyntheticSupportSandbox:
@@ -156,6 +291,8 @@ class SyntheticSupportSandbox:
         self._init_schema()
         if not self.lookup_customer(DEMO_CUSTOMER_ID):
             self.reset_demo_data()
+        else:
+            self._sync_availability_seed()
 
     def _init_schema(self) -> None:
         with self._db:
@@ -196,6 +333,12 @@ class SyntheticSupportSandbox:
                         "INSERT INTO records VALUES (?, ?, ?, ?, ?, ?)",
                         (domain, record_type, record_id, DEMO_CUSTOMER_ID, json.dumps(data), now),
                     )
+            self._db.executemany("INSERT INTO availability VALUES (?, ?, ?, ?, ?)", _AVAILABILITY)
+
+    def _sync_availability_seed(self) -> None:
+        """Refresh deterministic scheduling facts without resetting customer mutations."""
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM availability")
             self._db.executemany("INSERT INTO availability VALUES (?, ?, ?, ?, ?)", _AVAILABILITY)
 
     def lookup_customer(self, customer_id: str) -> dict[str, Any] | None:
@@ -295,13 +438,48 @@ class SyntheticSupportSandbox:
         changes: dict[str, Any],
         record_id: str | None = None,
         action: str = "UPDATE",
+        allow_nulls: bool = False,
     ) -> dict[str, Any]:
         with self._lock, self._db:
-            current = self.get_record(customer_id, domain, record_type, record_id)
-            if current is None:
+            if record_id:
+                row = self._db.execute(
+                    "SELECT record_id, data_json FROM records WHERE customer_id=? AND domain=? "
+                    "AND record_type=? AND record_id=?",
+                    (customer_id, domain, record_type, record_id),
+                ).fetchone()
+            else:
+                row = self._db.execute(
+                    "SELECT record_id, data_json FROM records WHERE customer_id=? AND domain=? "
+                    "AND record_type=? ORDER BY updated_at DESC LIMIT 1",
+                    (customer_id, domain, record_type),
+                ).fetchone()
+            if row is None:
                 raise KeyError(f"No {domain} {record_type} record")
-            key = record_id or str(current.get(f"{record_type}_id") or current.get("id"))
-            updated = {**current, **{k: v for k, v in changes.items() if v is not None}}
+            current = json.loads(row["data_json"])
+            key = str(row["record_id"])
+            supplied = (
+                dict(changes)
+                if allow_nulls
+                else {k: v for k, v in changes.items() if v is not None}
+            )
+            if not supplied:
+                raise ValueError("no update values were supplied")
+            unknown_fields = sorted(set(supplied) - set(current))
+            if unknown_fields:
+                raise ValueError(f"unknown record fields: {', '.join(unknown_fields)}")
+            updated = {**current, **supplied}
+            changed_ids = [
+                field
+                for field in current
+                if field.endswith("_id")
+                and field in supplied
+                and updated.get(field) != current[field]
+            ]
+            if changed_ids:
+                raise ValueError(f"{changed_ids[0]} cannot be changed")
+            _validate_record_fields(updated)
+            if updated == current:
+                raise ValueError("the requested values already match the current record")
             self._db.execute(
                 "UPDATE records SET data_json=?, updated_at=? WHERE domain=? AND record_type=? AND record_id=?",
                 (json.dumps(updated), time.time(), domain, record_type, key),
@@ -323,6 +501,10 @@ class SyntheticSupportSandbox:
     def create_record(
         self, customer_id: str, domain: str, record_type: str, record_id: str, data: dict[str, Any]
     ) -> dict[str, Any]:
+        identifiers = [value for field, value in data.items() if field.endswith("_id")]
+        if record_id not in identifiers:
+            raise ValueError("a record identifier field must match the storage key")
+        _validate_record_fields(data)
         with self._lock, self._db:
             self._db.execute(
                 "INSERT INTO records VALUES (?, ?, ?, ?, ?, ?)",
@@ -341,11 +523,46 @@ class SyntheticSupportSandbox:
             "SELECT available FROM availability WHERE domain=? AND resource=? AND date=? AND time=?",
             (domain, resource, date, requested_time),
         ).fetchone()
+        alternatives = [
+            candidate["time"]
+            for candidate in self._db.execute(
+                "SELECT time FROM availability WHERE domain=? AND resource=? AND date=? "
+                "AND available=1 AND time<>? ORDER BY time LIMIT 4",
+                (domain, resource, date, requested_time),
+            ).fetchall()
+        ]
         return {
             "resource": resource,
             "date": date,
             "requested_time": requested_time,
             "availability": "AVAILABLE" if row and row["available"] else "UNAVAILABLE",
+            "alternative_times": alternatives,
+        }
+
+    def check_date_range_availability(
+        self, domain: str, resource: str, check_in: str, check_out: str
+    ) -> dict[str, Any]:
+        """Check every night in a half-open hotel stay against authoritative inventory."""
+        start = date.fromisoformat(check_in)
+        end = date.fromisoformat(check_out)
+        if end <= start:
+            raise ValueError("hotel check-out must be after check-in")
+        nights = [
+            (start + timedelta(days=offset)).isoformat() for offset in range((end - start).days)
+        ]
+        rows = self._db.execute(
+            "SELECT date, available FROM availability WHERE domain=? AND resource=? "
+            "AND time='NIGHT' AND date>=? AND date<?",
+            (domain, resource, check_in, check_out),
+        ).fetchall()
+        available_by_date = {row["date"]: bool(row["available"]) for row in rows}
+        unavailable = [night for night in nights if not available_by_date.get(night, False)]
+        return {
+            "resource": resource,
+            "check_in": check_in,
+            "check_out": check_out,
+            "availability": "AVAILABLE" if not unavailable else "UNAVAILABLE",
+            "unavailable_dates": unavailable,
         }
 
     def recent_changes(self, domain: str, limit: int = 8) -> list[dict[str, Any]]:

@@ -70,13 +70,13 @@ class EcommerceAdapter(DomainAdapter):
         goal(
             "cancel_order",
             "Cancel an existing order",
-            r"\bcancel\b.*\border\b",
+            r"\bcancel\b.*\b(?:order|it)\b",
             subjects=frozenset({Subject.ORDER}),
         ),
         goal(
             "return_order",
             "Return an existing order",
-            r"\b(?:return|send back|wrong item|damaged)\b",
+            r"\b(?:return|send(?: it)? back|wrong item|damaged)\b",
             subjects=frozenset({Subject.ORDER, Subject.REFUND}),
         ),
         goal(
@@ -86,6 +86,13 @@ class EcommerceAdapter(DomainAdapter):
             subjects=frozenset({Subject.ORDER}),
         ),
         goal(
+            "replace_order_item",
+            "Escalate a product replacement or exchange request",
+            r"\b(?:replace|replacement|exchange|swap)\b.*\b(?:order|item|product|it|headphones?)\b|\b(?:wrong|damaged)\b.*\b(?:replacement|exchange)\b",
+            r"\b(?:replace|exchange|swap)\b",
+            subjects=frozenset({Subject.ORDER, Subject.CASE}),
+        ),
+        goal(
             "resolve_refund",
             "Investigate or resolve an existing refund",
             r"\b(?:refund|money back|credited)\b",
@@ -93,6 +100,7 @@ class EcommerceAdapter(DomainAdapter):
         ),
     )
     diagnostic_goal_ids = frozenset({"resolve_refund"})
+    escalation_goal_ids = frozenset({"replace_order_item"})
     hypothesis_subjects: ClassVar[dict[str, frozenset[Subject]]] = {
         "REFUND_ALREADY_RECEIVED": frozenset({Subject.REFUND}),
         "REFUND_NOT_SUBMITTED": frozenset({Subject.REFUND}),
@@ -126,7 +134,7 @@ class EcommerceAdapter(DomainAdapter):
         "refund_return": "whether the refund was returned",
     }
     remediation_actions = frozenset({"reissue_refund"})
-    safety_boundary = "Resolve an existing order refund only; do not shop, recommend products, or place new orders."
+    safety_boundary = "Resolve an existing order or refund only; do not shop, recommend products, or place new orders."
 
     def build_hypotheses(self) -> list[Hypothesis]:
         return [
@@ -209,6 +217,18 @@ class EcommerceAdapter(DomainAdapter):
         if tool_name == "reissue_refund":
 
             def reissue():
+                current = backend.sandbox.get_record(backend.customer_id, self.domain_id, "refund")
+                if (
+                    current.get("processing_status") == "REISSUED"
+                    and current.get("settlement_status") == "PROCESSING"
+                ):
+                    return {
+                        "customer_id": backend.customer_id,
+                        "action_status": "ALREADY_REISSUED",
+                        "already_in_requested_state": True,
+                        "changed": False,
+                        **current,
+                    }
                 record = backend.sandbox.update_record(
                     backend.customer_id,
                     self.domain_id,
@@ -216,7 +236,12 @@ class EcommerceAdapter(DomainAdapter):
                     {"processing_status": "REISSUED", "settlement_status": "PROCESSING"},
                     action=tool_name,
                 )
-                return {"customer_id": backend.customer_id, "action_status": "REISSUED", **record}
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": "REISSUED",
+                    "changed": True,
+                    **record,
+                }
 
             return await backend.call(tool_name, reissue, mutates=True)
         if tool_name == "cancel_order":

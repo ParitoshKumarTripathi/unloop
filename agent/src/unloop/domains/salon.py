@@ -8,6 +8,7 @@ from ..resolution.hypotheses import Hypothesis
 from ..resolution.state import ResolutionState
 from ..tools.types import Subject, ToolResult
 from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, goal, rx
+from .scheduling import target_schedule
 
 
 class SalonAdapter(DomainAdapter):
@@ -37,14 +38,14 @@ class SalonAdapter(DomainAdapter):
         ToolDefinition(
             "reschedule_appointment",
             Subject.APPOINTMENT,
-            "correctively reschedule the affected appointment",
+            "reschedule the appointment using separate date and clock-time values",
             True,
             goal_ids=frozenset({"reschedule_appointment", "resolve_appointment_mismatch"}),
         ),
         ToolDefinition(
             "check_salon_availability",
             Subject.APPOINTMENT,
-            "check availability for a requested appointment time",
+            "check availability for a requested appointment date and time, supplied separately",
         ),
         ToolDefinition(
             "change_appointment_service",
@@ -63,7 +64,7 @@ class SalonAdapter(DomainAdapter):
         ToolDefinition(
             "rebook_appointment",
             Subject.APPOINTMENT,
-            "rebook an affected appointment",
+            "rebook an affected appointment using separate date and clock-time values",
             True,
             goal_ids=frozenset({"rebook_appointment", "resolve_appointment_mismatch"}),
         ),
@@ -84,13 +85,13 @@ class SalonAdapter(DomainAdapter):
         goal(
             "cancel_appointment",
             "Cancel an existing appointment",
-            r"\bcancel\b.*\bappointment\b",
+            r"\bcancel\b.*\b(?:appointment|it)\b",
             subjects=frozenset({Subject.APPOINTMENT}),
         ),
         goal(
             "rebook_appointment",
             "Rebook an affected appointment",
-            r"\b(?:rebook|book again|replacement)\b",
+            r"\b(?:rebook|book(?:\s+it)? again|replacement)\b",
             subjects=frozenset({Subject.APPOINTMENT, Subject.MERCHANT_RECORD}),
         ),
         goal(
@@ -235,13 +236,18 @@ class SalonAdapter(DomainAdapter):
                 record = backend.sandbox.get_record(
                     backend.customer_id, self.domain_id, "appointment"
                 )
+                requested_date, requested_time = target_schedule(
+                    record,
+                    requested_date=kwargs.get("requested_date"),
+                    requested_time=kwargs.get("requested_time"),
+                )
                 return {
                     "customer_id": backend.customer_id,
                     **backend.sandbox.check_availability(
                         self.domain_id,
                         record["salon"],
-                        record["date"],
-                        kwargs.get("requested_time", ""),
+                        requested_date,
+                        requested_time,
                     ),
                 }
 
@@ -255,21 +261,60 @@ class SalonAdapter(DomainAdapter):
                 tool_name, "appointment", {"status": "CANCELLED"}, action_status="CANCELLED"
             )
         if tool_name == "rebook_appointment":
-            return await backend.update_record(
-                tool_name,
-                "appointment",
-                {"status": "CONFIRMED", "time": kwargs.get("new_time")},
-                action_status="REBOOKED",
-            )
-        if tool_name == "reschedule_appointment" and kwargs:
-            return await backend.update_record(
-                tool_name, "appointment", {"time": kwargs.get("new_time")}
-            )
+            return await self._change_schedule(backend, tool_name, "REBOOKED", **kwargs)
+        if tool_name == "reschedule_appointment" and (
+            kwargs.get("new_date") or kwargs.get("new_time")
+        ):
+            return await self._change_schedule(backend, tool_name, "RESCHEDULED", **kwargs)
         if tool_name == "reschedule_appointment":
             return await backend.update_record(
                 tool_name, "appointment", {"status": "CONFIRMED"}, action_status="RESCHEDULED"
             )
         return await super().invoke(backend, tool_name, **kwargs)
+
+    async def _change_schedule(self, backend, tool_name: str, action_status: str, **kwargs):
+        def change():
+            current = backend.sandbox.get_record(backend.customer_id, self.domain_id, "appointment")
+            target_date, target_time = target_schedule(
+                current,
+                requested_date=kwargs.get("new_date") or kwargs.get("requested_date"),
+                requested_time=kwargs.get("new_time") or kwargs.get("requested_time"),
+            )
+            if current["date"] == target_date and current["time"] == target_time:
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": "ALREADY_SCHEDULED",
+                    "already_in_requested_state": True,
+                    "changed": False,
+                    **current,
+                }
+            availability = backend.sandbox.check_availability(
+                self.domain_id, current["salon"], target_date, target_time
+            )
+            if availability["availability"] != "AVAILABLE":
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": "UNAVAILABLE",
+                    "requested_date": target_date,
+                    "requested_time": target_time,
+                    "alternative_times": availability.get("alternative_times", []),
+                    **current,
+                }
+            updated = backend.sandbox.update_record(
+                backend.customer_id,
+                self.domain_id,
+                "appointment",
+                {"status": "CONFIRMED", "date": target_date, "time": target_time},
+                action=tool_name,
+            )
+            return {
+                "customer_id": backend.customer_id,
+                "action_status": action_status,
+                "changed": True,
+                **updated,
+            }
+
+        return await backend.call(tool_name, change, mutates=True)
 
     def absorb(self, state: ResolutionState, result: ToolResult) -> None:
         p = result.payload
@@ -293,6 +338,8 @@ class SalonAdapter(DomainAdapter):
                 )
                 state.set_strategy("correct_appointment", reason="erroneous change confirmed")
         elif result.tool_name == "reschedule_appointment":
+            if p.get("action_status") == "UNAVAILABLE":
+                return
             state.confirm_fact(
                 "appointment_resolution", str(p.get("action_status", "UNKNOWN")), detail=dict(p)
             )
@@ -304,5 +351,27 @@ class SalonAdapter(DomainAdapter):
         if result.tool_name == "check_appointment_history":
             return f"The change audit reports {p.get('change_cause', 'unknown')}."
         if result.tool_name == "reschedule_appointment":
-            return f"The corrective reschedule is {p.get('action_status', 'unknown')}."
+            if p.get("action_status") == "UNAVAILABLE":
+                return (
+                    f"The requested appointment on {p.get('requested_date')} at "
+                    f"{p.get('requested_time')} is unavailable. Nothing was changed; the appointment "
+                    f"remains on {p.get('date')} at {p.get('time')}."
+                )
+            return (
+                f"The appointment is {str(p.get('action_status', 'updated')).lower()} for "
+                f"{p.get('date')} at {p.get('time')}."
+            )
+        if result.tool_name == "rebook_appointment":
+            if p.get("action_status") == "UNAVAILABLE":
+                return "That appointment date and time is unavailable. Nothing was changed."
+            return f"The appointment is rebooked for {p.get('date')} at {p.get('time')}."
+        if result.tool_name == "check_salon_availability":
+            summary = (
+                f"The requested appointment on {p.get('date')} at {p.get('requested_time')} is "
+                f"{str(p.get('availability', 'unknown')).lower()}."
+            )
+            alternatives = p.get("alternative_times") or []
+            if p.get("availability") == "UNAVAILABLE" and alternatives:
+                summary += " Available times that day include " + ", ".join(alternatives) + "."
+            return summary
         return super().describe(result)

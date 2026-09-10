@@ -8,6 +8,7 @@ from ..resolution.hypotheses import Hypothesis
 from ..resolution.state import ResolutionState
 from ..tools.types import Subject, ToolResult
 from .base import COMMON_NEGATIONS, DomainAdapter, ToolDefinition, goal, rx
+from .scheduling import target_schedule
 
 
 class RestaurantAdapter(DomainAdapter):
@@ -48,13 +49,13 @@ class RestaurantAdapter(DomainAdapter):
         ToolDefinition(
             "check_restaurant_availability",
             Subject.RESERVATION,
-            "check availability for a requested reservation time",
+            "check availability for a requested reservation date and time, supplied separately",
             goal_ids=frozenset({"reschedule_reservation", "rebook_reservation"}),
         ),
         ToolDefinition(
             "reschedule_restaurant_reservation",
             Subject.RESERVATION,
-            "move the existing reservation to a requested time",
+            "move the existing reservation to a requested date and/or time, supplied separately",
             True,
             goal_ids=frozenset({"reschedule_reservation"}),
         ),
@@ -96,13 +97,13 @@ class RestaurantAdapter(DomainAdapter):
         goal(
             "cancel_reservation",
             "Cancel the existing reservation",
-            r"\b(?:cancel|delete)\b.*\b(?:reservation|booking|table)\b",
+            r"\b(?:cancel|delete)\b.*\b(?:reservation|booking|table|it)\b",
             subjects=frozenset({Subject.RESERVATION}),
         ),
         goal(
             "rebook_reservation",
             "Rebook an affected reservation",
-            r"\b(?:rebook|book again|replacement booking)\b",
+            r"\b(?:rebook|book(?:\s+it)? again|replacement booking)\b",
             subjects=frozenset({Subject.RESERVATION, Subject.MERCHANT_RECORD}),
         ),
         goal(
@@ -258,23 +259,68 @@ class RestaurantAdapter(DomainAdapter):
                 record = backend.sandbox.get_record(
                     backend.customer_id, self.domain_id, "reservation"
                 )
+                requested_date, requested_time = target_schedule(
+                    record,
+                    requested_date=kwargs.get("requested_date"),
+                    requested_time=kwargs.get("requested_time"),
+                )
                 return {
                     "customer_id": backend.customer_id,
                     **backend.sandbox.check_availability(
                         self.domain_id,
                         record["restaurant"],
-                        record["date"],
-                        kwargs.get("requested_time", ""),
+                        requested_date,
+                        requested_time,
                     ),
                 }
 
             return await backend.call(tool_name, availability)
         if tool_name == "reschedule_restaurant_reservation":
-            return await backend.update_record(
-                tool_name,
-                "reservation",
-                {"time": kwargs.get("new_time") or kwargs.get("requested_time")},
-            )
+
+            def reschedule():
+                current = backend.sandbox.get_record(
+                    backend.customer_id, self.domain_id, "reservation"
+                )
+                target_date, target_time = target_schedule(
+                    current,
+                    requested_date=kwargs.get("new_date") or kwargs.get("requested_date"),
+                    requested_time=kwargs.get("new_time") or kwargs.get("requested_time"),
+                )
+                if current["date"] == target_date and current["time"] == target_time:
+                    return {
+                        "customer_id": backend.customer_id,
+                        "action_status": "ALREADY_SCHEDULED",
+                        "already_in_requested_state": True,
+                        "changed": False,
+                        **current,
+                    }
+                availability = backend.sandbox.check_availability(
+                    self.domain_id, current["restaurant"], target_date, target_time
+                )
+                if availability["availability"] != "AVAILABLE":
+                    return {
+                        "customer_id": backend.customer_id,
+                        "action_status": "UNAVAILABLE",
+                        "requested_date": target_date,
+                        "requested_time": target_time,
+                        "alternative_times": availability.get("alternative_times", []),
+                        **current,
+                    }
+                updated = backend.sandbox.update_record(
+                    backend.customer_id,
+                    self.domain_id,
+                    "reservation",
+                    {"date": target_date, "time": target_time},
+                    action=tool_name,
+                )
+                return {
+                    "customer_id": backend.customer_id,
+                    "action_status": "RESCHEDULED",
+                    "changed": True,
+                    **updated,
+                }
+
+            return await backend.call(tool_name, reschedule, mutates=True)
         if tool_name == "change_restaurant_party_size":
             return await backend.update_record(
                 tool_name, "reservation", {"party_size": kwargs.get("party_size")}
@@ -372,6 +418,8 @@ class RestaurantAdapter(DomainAdapter):
             "change_restaurant_party_size",
             "cancel_restaurant_reservation",
         }:
+            if result.payload.get("action_status") == "UNAVAILABLE":
+                return
             state.confirm_fact(
                 "reservation_resolution", str(p.get("action_status", "UPDATED")), detail=dict(p)
             )
@@ -385,9 +433,23 @@ class RestaurantAdapter(DomainAdapter):
         if result.tool_name == "rebook_reservation":
             return f"The replacement reservation is {p.get('action_status', 'unknown')}."
         if result.tool_name == "check_restaurant_availability":
-            return f"The requested time {p.get('requested_time', 'unknown')} is available for this existing reservation."
+            summary = (
+                f"The requested reservation on {p.get('date', 'the requested date')} at "
+                f"{p.get('requested_time', 'the requested time')} is "
+                f"{str(p.get('availability', 'unknown')).lower()}."
+            )
+            alternatives = p.get("alternative_times") or []
+            if p.get("availability") == "UNAVAILABLE" and alternatives:
+                summary += " Available times that day include " + ", ".join(alternatives) + "."
+            return summary
         if result.tool_name == "reschedule_restaurant_reservation":
-            return f"The reservation is now at {p.get('time', 'the requested time')}."
+            if p.get("action_status") == "UNAVAILABLE":
+                return (
+                    f"The requested reservation on {p.get('requested_date')} at "
+                    f"{p.get('requested_time')} is unavailable. Nothing was changed; the reservation "
+                    f"remains on {p.get('date')} at {p.get('time')}."
+                )
+            return f"The reservation is now on {p.get('date')} at {p.get('time')}."
         if result.tool_name == "change_restaurant_party_size":
             return f"The reservation remains at {p.get('time', 'its existing time')} and the party size is now {p.get('party_size', 'updated')}."
         if result.tool_name == "cancel_restaurant_reservation":
