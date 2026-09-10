@@ -14,6 +14,11 @@ import { useDebugMode } from '@/hooks/useDebug';
 import { I18nProvider, useI18n } from '@/lib/i18n';
 
 const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
+// LiveKit Cloud may need to wake a scaled-to-zero agent before dispatching it.
+// The components SDK defaults to 20 seconds, which is too aggressive for a
+// production cold start plus a mobile connection (our healthy cloud dispatches
+// commonly take 10-13 seconds before accounting for client network latency).
+const AGENT_CONNECT_TIMEOUT_MS = 60_000;
 
 function AppSetup() {
   useDebugMode({ enabled: IN_DEVELOPMENT });
@@ -81,6 +86,7 @@ export function App({ agentName, demoMode = true }: AppProps) {
   };
 
   const session = useSession(tokenSource, {
+    agentConnectTimeoutMilliseconds: AGENT_CONNECT_TIMEOUT_MS,
     ...(agentName ? { agentName } : {}),
     agentMetadata: JSON.stringify({
       domain: selectedDomain,
